@@ -1,7 +1,7 @@
 """AT-SPI tools — read and interact with application UIs."""
 
 import json
-from aulinx.tools.registry import Tool
+from aulinx.tools.registry import Tool, Tier
 
 
 async def atspi_get_tree(app_name: str = "", max_depth: int = 3) -> dict | list:
@@ -275,23 +275,27 @@ TOOLS = [
         description="Get the accessibility tree for an app (shows UI elements, text, actions)",
         fn=atspi_get_tree,
         parameters={"app_name": "string (optional, default: focused app)", "max_depth": "int (default 3)"},
+        tier=Tier.OBSERVE,
     ),
     Tool(
         name="atspi_find_elements",
         description="Find UI elements by role (button/text/entry/menu/link/terminal) and/or name",
         fn=atspi_find_elements,
         parameters={"role": "string (optional)", "name": "string (optional)", "app_name": "string (optional)"},
+        tier=Tier.OBSERVE,
     ),
     Tool(
         name="atspi_do_action",
         description="Click/activate a UI element by name in a specific app",
         fn=atspi_do_action,
         parameters={"app_name": "string", "element_name": "string", "action": "string (default: click)"},
+        tier=Tier.MUTATE,
     ),
     Tool(
         name="atspi_read_text",
         description="Read text content from a UI element in an app",
         fn=atspi_read_text,
         parameters={"app_name": "string", "element_name": "string (optional)"},
+        tier=Tier.OBSERVE,
     ),
 ]

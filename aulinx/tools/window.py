@@ -1,6 +1,6 @@
 """Window management tools — list, focus, close windows."""
 
-from aulinx.tools.registry import Tool
+from aulinx.tools.registry import Tool, Tier
 
 
 async def window_list() -> list[dict]:
@@ -52,10 +52,12 @@ TOOLS = [
         name="window_list",
         description="List all open windows with app name, title, and active state",
         fn=window_list,
+        tier=Tier.OBSERVE,
     ),
     Tool(
         name="window_get_focused",
         description="Get the currently focused window",
         fn=window_get_focused,
+        tier=Tier.OBSERVE,
     ),
 ]

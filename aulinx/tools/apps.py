@@ -2,7 +2,7 @@
 
 import subprocess
 import shutil
-from aulinx.tools.registry import Tool
+from aulinx.tools.registry import Tool, Tier
 
 
 async def app_launch(app: str) -> str:
@@ -43,10 +43,12 @@ TOOLS = [
         description="Launch an application by name (e.g. 'firefox', 'nautilus', 'gnome-terminal')",
         fn=app_launch,
         parameters={"app": "string"},
+        tier=Tier.MUTATE,
     ),
     Tool(
         name="app_list_running",
         description="List all running GUI applications",
         fn=app_list_running,
+        tier=Tier.OBSERVE,
     ),
 ]

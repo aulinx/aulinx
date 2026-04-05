@@ -1,9 +1,8 @@
 """File operation tools."""
 
 import os
-import subprocess
 from pathlib import Path
-from aulinx.tools.registry import Tool
+from aulinx.tools.registry import Tool, Tier
 
 
 async def file_read(path: str, limit: int = 100) -> str:
@@ -65,17 +64,20 @@ TOOLS = [
         description="Read a file's content",
         fn=file_read,
         parameters={"path": "string", "limit": "int (max lines, default 100)"},
+        tier=Tier.OBSERVE,
     ),
     Tool(
         name="file_list",
         description="List directory contents",
         fn=file_list,
         parameters={"path": "string (default: current dir)", "include_hidden": "bool"},
+        tier=Tier.OBSERVE,
     ),
     Tool(
         name="file_search",
         description="Search for files by name pattern",
         fn=file_search,
         parameters={"query": "string", "path": "string (default: home)", "max_results": "int"},
+        tier=Tier.OBSERVE,
     ),
 ]

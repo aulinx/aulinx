@@ -2,7 +2,7 @@
 
 import subprocess
 import os
-from aulinx.tools.registry import Tool
+from aulinx.tools.registry import Tool, Tier
 
 
 async def system_info() -> dict:
@@ -76,11 +76,13 @@ TOOLS = [
         name="system_info",
         description="Get system information (OS, kernel, memory, CPU load, desktop environment)",
         fn=system_info,
+        tier=Tier.OBSERVE,
     ),
     Tool(
         name="shell_exec",
         description="Execute a shell command and return stdout/stderr. Use with caution.",
         fn=shell_exec,
         parameters={"command": "string"},
+        tier=Tier.DESTRUCTIVE,
     ),
 ]
