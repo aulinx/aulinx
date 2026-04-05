@@ -1,6 +1,7 @@
 """AT-SPI tools — read and interact with application UIs."""
 
 import json
+from pathlib import Path
 from aulinx.tools.registry import Tool, Tier
 
 
@@ -269,6 +270,99 @@ def _find_text(node, name_filter: str, depth: int, max_depth: int) -> str | None
     return None
 
 
+async def atspi_set_text(app_name: str, element_name: str, text: str) -> str:
+    """Set text content in an editable text field."""
+    try:
+        import pyatspi
+
+        desktop = pyatspi.Registry.getDesktop(0)
+
+        for app in desktop:
+            try:
+                if app_name.lower() not in (app.name or "").lower():
+                    continue
+                result = _find_and_set_text(app, element_name.lower(), text, 0, 6)
+                if result:
+                    return result
+            except Exception:
+                continue
+
+        return f"Editable element '{element_name}' not found in '{app_name}'"
+
+    except ImportError:
+        return "pyatspi not available"
+
+
+def _find_and_set_text(node, name_filter: str, text: str, depth: int, max_depth: int) -> str | None:
+    """Find an editable element and set its text."""
+    if depth > max_depth or node is None:
+        return None
+
+    try:
+        if name_filter in (node.name or "").lower():
+            try:
+                editable = node.queryEditableText()
+                # Clear existing text
+                text_iface = node.queryText()
+                existing_len = text_iface.characterCount
+                if existing_len > 0:
+                    editable.deleteText(0, existing_len)
+                # Insert new text
+                editable.insertText(0, text, len(text))
+                return f"Set text on '{node.name}': '{text[:50]}{'...' if len(text) > 50 else ''}'"
+            except (NotImplementedError, AttributeError):
+                pass
+
+        for child in node:
+            if child is not None:
+                result = _find_and_set_text(child, name_filter, text, depth + 1, max_depth)
+                if result:
+                    return result
+    except Exception:
+        pass
+
+    return None
+
+
+async def window_screenshot(method: str = "grim") -> dict:
+    """Take a screenshot of the screen or focused window. Returns the file path."""
+    import subprocess
+    import tempfile
+    import time
+
+    filename = f"aulinx-screenshot-{int(time.time())}.png"
+    filepath = Path(tempfile.gettempdir()) / filename
+
+    # Try multiple screenshot methods
+    commands = {
+        "grim": ["grim", str(filepath)],                          # Wayland (wlroots)
+        "gnome-screenshot": ["gnome-screenshot", "-f", str(filepath)],  # GNOME
+        "scrot": ["scrot", str(filepath)],                         # X11
+        "import": ["import", "-window", "root", str(filepath)],   # ImageMagick X11
+    }
+
+    # Try preferred method first, then others
+    order = [method] + [k for k in commands if k != method]
+
+    for cmd_name in order:
+        cmd = commands.get(cmd_name)
+        if not cmd:
+            continue
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0 and filepath.exists():
+                size = filepath.stat().st_size
+                return {
+                    "path": str(filepath),
+                    "size_bytes": size,
+                    "method": cmd_name,
+                }
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+
+    return {"error": "No screenshot tool available (install grim, gnome-screenshot, or scrot)"}
+
+
 TOOLS = [
     Tool(
         name="atspi_get_tree",
@@ -296,6 +390,20 @@ TOOLS = [
         description="Read text content from a UI element in an app",
         fn=atspi_read_text,
         parameters={"app_name": "string", "element_name": "string (optional)"},
+        tier=Tier.OBSERVE,
+    ),
+    Tool(
+        name="atspi_set_text",
+        description="Set text in an editable field (text entry, search bar, etc.)",
+        fn=atspi_set_text,
+        parameters={"app_name": "string", "element_name": "string", "text": "string"},
+        tier=Tier.MUTATE,
+    ),
+    Tool(
+        name="window_screenshot",
+        description="Take a screenshot of the screen. Returns file path to the PNG.",
+        fn=window_screenshot,
+        parameters={"method": "grim|gnome-screenshot|scrot (default: grim)"},
         tier=Tier.OBSERVE,
     ),
 ]

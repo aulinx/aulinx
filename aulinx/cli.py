@@ -6,6 +6,7 @@ from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
 
 from aulinx.agent import Agent
+from aulinx.config import load_config
 
 console = Console()
 
@@ -20,7 +21,13 @@ def print_banner():
 
 async def run():
     print_banner()
-    agent = Agent()
+    config = load_config()
+    agent = Agent(
+        model=config.llm.model,
+        base_url=config.llm.base_url,
+        temperature=config.llm.temperature,
+        max_history=config.context.max_history,
+    )
     await agent.initialize()
 
     session = PromptSession()

@@ -37,9 +37,17 @@ MAX_TOOL_DEPTH = 5  # prevent infinite tool call loops
 
 
 class Agent:
-    def __init__(self, model: str = "qwen2.5:14b", base_url: str = "http://localhost:11434"):
+    def __init__(
+        self,
+        model: str = "qwen2.5:14b",
+        base_url: str = "http://localhost:11434",
+        temperature: float = 0.3,
+        max_history: int = 20,
+    ):
         self.model = model
         self.base_url = base_url
+        self.temperature = temperature
+        self.max_history = max_history
         self.context = DesktopContext()
         self.tools = ToolRegistry()
         self.history: list[dict] = []
@@ -86,7 +94,7 @@ class Agent:
 
         messages = [
             {"role": "system", "content": system},
-            *self.history[-20:],  # keep last 20 messages to avoid context overflow
+            *self.history[-self.max_history:],
         ]
 
         # Stream response
@@ -167,7 +175,7 @@ class Agent:
                         "model": self.model,
                         "messages": messages,
                         "stream": True,
-                        "options": {"temperature": 0.3},
+                        "options": {"temperature": self.temperature},
                     },
                     timeout=90,
                 ) as resp:
