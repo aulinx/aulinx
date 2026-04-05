@@ -1,0 +1,20 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aulinx"
+version = "0.1.0"
+description = "The AI-native Linux desktop"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "pyatspi",
+    "httpx",
+    "rich",
+    "prompt_toolkit",
+]
+
+[project.scripts]
+aulinx = "aulinx.cli:main"
