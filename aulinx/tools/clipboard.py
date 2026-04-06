@@ -16,7 +16,7 @@ async def clipboard_get() -> dict:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
             if result.returncode == 0:
                 return {"text": result.stdout[:2000], "length": len(result.stdout)}
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError, OSError):
             continue
 
     return {"error": "No clipboard tool available (install wl-paste, xclip, or xsel)"}
@@ -35,7 +35,7 @@ async def clipboard_set(text: str) -> dict:
             )
             if result.returncode == 0:
                 return {"success": True, "length": len(text)}
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError, OSError):
             continue
 
     return {"error": "No clipboard tool available (install wl-copy, xclip, or xsel)"}

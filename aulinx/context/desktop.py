@@ -129,6 +129,6 @@ def _get_clipboard() -> str | None:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=2)
             if result.returncode == 0 and result.stdout:
                 return result.stdout[:200]
-        except (FileNotFoundError, subprocess.TimeoutExpired):
+        except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError, OSError):
             continue
     return None
