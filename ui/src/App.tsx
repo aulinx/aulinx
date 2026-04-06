@@ -151,12 +151,15 @@ function App() {
           }
 
           if (msg.role === "assistant") {
-            // Strip ```json tool call blocks from displayed text
+            // Strip ```json tool call blocks and partial JSON from displayed text
             const cleaned = msg.content
-              .replace(/```json\s*\n?\{[\s\S]*?\}\s*\n?```/g, "")
-              .replace(/\{"\s*tool"\s*:[\s\S]*?\}/g, "")
+              .replace(/```json[\s\S]*?```/g, "")
+              .replace(/```json[\s\S]*/g, "")  // partial block (still streaming)
+              .replace(/```\s*$/g, "")
+              .replace(/\{\s*"tool"\s*:[\s\S]*?\}/g, "")
+              .replace(/\{\s*"tool"\s*:[\s\S]*/g, "")  // partial JSON
               .trim();
-            if (!cleaned) return null;
+            if (!cleaned || cleaned.length < 2) return null;
             return (
               <div key={msg.id} className="message assistant">
                 <Markdown>{cleaned}</Markdown>

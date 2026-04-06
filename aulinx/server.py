@@ -43,6 +43,8 @@ class WebSocketServer:
             self.host,
             self.port,
             logger=logging.getLogger("websockets.server"),
+            ping_interval=30,
+            ping_timeout=10,
         ):
             await asyncio.Future()  # run forever
 
@@ -85,10 +87,20 @@ class WebSocketServer:
                 agent.history.append({"role": "user", "content": user_input})
 
                 # Process with streaming
-                await self._process_message(ws, agent)
+                try:
+                    await self._process_message(ws, agent)
+                except Exception as e:
+                    console.print(f"[red]Error processing message: {e}[/red]")
+                    try:
+                        await ws.send(json.dumps({"type": "error", "message": str(e)}))
+                        await ws.send(json.dumps({"type": "done"}))
+                    except Exception:
+                        pass
 
         except websockets.ConnectionClosed:
             console.print("[dim]Client disconnected[/dim]")
+        except Exception as e:
+            console.print(f"[red]Client handler error: {e}[/red]")
 
     async def _process_message(self, ws, agent: Agent, depth: int = 0):
         """Process a message through the agent and stream results to WebSocket."""
