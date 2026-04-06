@@ -6,7 +6,10 @@ import json
 from enum import IntEnum
 from typing import Any, Callable, Awaitable
 
-from aulinx.tools import window, atspi_tools, files, apps, system, clipboard, notify, dbus_tools
+from aulinx.tools import (
+    window, atspi_tools, files, apps, system, clipboard,
+    notify, dbus_tools, process, network, audio, display,
+)
 
 
 class Tier(IntEnum):
@@ -46,7 +49,10 @@ class ToolRegistry:
 
     def _register_builtins(self):
         """Register all built-in tool modules."""
-        for module in [window, atspi_tools, files, apps, system, clipboard, notify, dbus_tools]:
+        for module in [
+            window, atspi_tools, files, apps, system, clipboard,
+            notify, dbus_tools, process, network, audio, display,
+        ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
 
