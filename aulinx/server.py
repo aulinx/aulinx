@@ -17,7 +17,7 @@ SYSTEM_PROMPT_FOR_WS = None  # populated from agent
 class WebSocketServer:
     """Serves the Aulinx agent over WebSocket for the UI palette."""
 
-    def __init__(self, host: str = "localhost", port: int = 8765):
+    def __init__(self, host: str = "0.0.0.0", port: int = 8765):
         self.host = host
         self.port = port
         self.agent: Agent | None = None
