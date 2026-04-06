@@ -22,18 +22,21 @@ class WebSocketServer:
         self.port = port
         self.agent: Agent | None = None
 
-    async def start(self):
+    async def start(self, model: str = "", base_url: str = ""):
         """Initialize agent and start WebSocket server."""
         config = load_config()
         self.agent = Agent(
-            model=config.llm.model,
-            base_url=config.llm.base_url,
+            model=model or config.llm.model,
+            base_url=base_url or config.llm.base_url,
             temperature=config.llm.temperature,
             max_history=config.context.max_history,
         )
         await self.agent.initialize()
 
         console.print(f"[bold gold1]Aulinx[/bold gold1] WebSocket server on ws://{self.host}:{self.port}")
+
+        import logging
+        logging.getLogger("websockets").setLevel(logging.ERROR)
 
         async with websockets.serve(self._handle_client, self.host, self.port):
             await asyncio.Future()  # run forever
@@ -166,6 +169,6 @@ class WebSocketServer:
             await ws.send(json.dumps({"type": "done"}))
 
 
-async def run_server(host: str = "localhost", port: int = 8765):
+async def run_server(host: str = "localhost", port: int = 8765, model: str = "", base_url: str = ""):
     server = WebSocketServer(host, port)
-    await server.start()
+    await server.start(model=model, base_url=base_url)

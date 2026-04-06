@@ -201,7 +201,11 @@ def main():
 
     if args.serve:
         from aulinx.server import run_server
-        asyncio.run(run_server(port=args.port))
+        asyncio.run(run_server(
+            port=args.port,
+            model=args.model or "",
+            base_url=args.base_url or "",
+        ))
         return
 
     agent = _build_agent(args)
