@@ -81,17 +81,21 @@ class ToolRegistry:
         """Mark a tool as confirmed for this session."""
         self._confirmed_tools.add(name)
 
-    def describe(self) -> str:
+    def describe(self, compact: bool = False) -> str:
         """Return tool descriptions for the LLM system prompt."""
         lines = []
         for tool in sorted(self._tools.values(), key=lambda t: t.name):
-            params = ""
-            if tool.parameters:
-                params = " | params: " + ", ".join(
-                    f"{k}: {v}" for k, v in tool.parameters.items()
-                )
-            tier_label = ["read", "low-risk", "mutate", "destructive", "irreversible"][tool.tier]
-            lines.append(f"- {tool.name} [{tier_label}]: {tool.description}{params}")
+            if compact:
+                # Short format to save tokens
+                lines.append(f"- {tool.name}: {tool.description[:60]}")
+            else:
+                params = ""
+                if tool.parameters:
+                    params = " | params: " + ", ".join(
+                        f"{k}: {v}" for k, v in tool.parameters.items()
+                    )
+                tier_label = ["read", "low-risk", "mutate", "destructive", "irreversible"][tool.tier]
+                lines.append(f"- {tool.name} [{tier_label}]: {tool.description}{params}")
         return "\n".join(lines)
 
     async def execute(self, name: str, args: dict[str, Any]) -> Any:
