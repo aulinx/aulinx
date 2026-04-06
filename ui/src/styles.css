@@ -92,7 +92,7 @@ body {
   justify-content: center;
 }
 
-.empty-hints span {
+.hint-chip {
   font-family: var(--mono);
   font-size: 12px;
   padding: 6px 12px;
@@ -100,7 +100,24 @@ body {
   border: 1px solid var(--border);
   border-radius: 6px;
   color: var(--text-dim);
-  cursor: default;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hint-chip:hover {
+  background: var(--gold-bg);
+  border-color: var(--gold-dim);
+  color: var(--gold);
+}
+
+.empty-shortcuts {
+  display: flex;
+  gap: 16px;
+  margin-top: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-dim);
+  opacity: 0.5;
 }
 
 /* Messages area */
@@ -231,6 +248,28 @@ body {
   font-size: 11px;
   color: var(--text-dim);
   opacity: 0.6;
+}
+
+.copy-btn {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 2px 8px;
+  background: transparent;
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  border-radius: 4px;
+  color: var(--green);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.tool-result:hover .copy-btn {
+  opacity: 0.6;
+}
+
+.copy-btn:hover {
+  opacity: 1 !important;
+  background: rgba(74, 222, 128, 0.1);
 }
 
 .tool-collapse {
@@ -365,6 +404,13 @@ body {
   color: var(--text-dim);
   display: flex;
   justify-content: space-between;
+  gap: 12px;
+}
+
+.status-shortcuts {
+  flex: 1;
+  text-align: center;
+  opacity: 0.4;
 }
 
 .status-connected::before {

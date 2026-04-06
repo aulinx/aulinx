@@ -9,6 +9,23 @@ description = "The AI-native Linux desktop"
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
+authors = [
+    { name = "Zhijie Wong", email = "wang.zhijie@163.com" },
+]
+keywords = ["ai", "linux", "desktop", "wayland", "llm", "atspi", "agent", "tools"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Desktop Environment",
+    "Topic :: System :: Systems Administration",
+]
 dependencies = [
     "httpx",
     "rich",
@@ -27,6 +44,12 @@ dev = [
     "ruff",
 ]
 
+[project.urls]
+Homepage = "https://aulinx.com"
+Repository = "https://github.com/aulinx/aulinx"
+Issues = "https://github.com/aulinx/aulinx/issues"
+Changelog = "https://github.com/aulinx/aulinx/blob/main/CHANGELOG.md"
+
 [project.scripts]
 aulinx = "aulinx.cli:main"
 
@@ -40,4 +63,4 @@ target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W"]
-ignore = ["E501"]  # line length handled by formatter, not linter
+ignore = ["E501"]
