@@ -278,35 +278,50 @@ class Agent:
         await self.handle("", _depth=_depth + 1)
 
     async def _stream_chat(self, messages: list[dict]) -> str:
-        """Stream a chat completion from Ollama."""
+        """Stream a chat completion from Ollama with spinner on first token."""
         response_text = ""
-        async with httpx.AsyncClient() as client:
-            async with client.stream(
-                "POST",
-                f"{self.base_url}/api/chat",
-                json={
-                    "model": self.model,
-                    "messages": messages,
-                    "stream": True,
-                    "options": {"temperature": self.temperature},
-                },
-                timeout=httpx.Timeout(connect=10, read=90, write=10, pool=10),
-            ) as resp:
-                resp.raise_for_status()
-                async for line in resp.aiter_lines():
-                    if not line:
-                        continue
-                    try:
-                        chunk = json.loads(line)
-                        token = chunk.get("message", {}).get("content", "")
-                        response_text += token
-                        # Don't print JSON tool calls character by character
-                        if "```json" not in response_text:
-                            console.print(token, end="", highlight=False)
-                        elif response_text.endswith("```\n") or response_text.endswith("```"):
-                            console.print(response_text, highlight=False, end="")
-                    except json.JSONDecodeError:
-                        continue
+        first_token = True
+        spinner = console.status("[dim]Thinking...[/dim]", spinner="dots")
+        spinner.start()
+
+        try:
+            async with httpx.AsyncClient() as client:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/api/chat",
+                    json={
+                        "model": self.model,
+                        "messages": messages,
+                        "stream": True,
+                        "options": {"temperature": self.temperature},
+                    },
+                    timeout=httpx.Timeout(connect=10, read=90, write=10, pool=10),
+                ) as resp:
+                    resp.raise_for_status()
+                    async for line in resp.aiter_lines():
+                        if not line:
+                            continue
+                        try:
+                            chunk = json.loads(line)
+                            token = chunk.get("message", {}).get("content", "")
+                            if not token:
+                                continue
+                            response_text += token
+
+                            # Stop spinner on first real token
+                            if first_token:
+                                spinner.stop()
+                                first_token = False
+
+                            # Don't print JSON tool calls character by character
+                            if "```json" not in response_text:
+                                console.print(token, end="", highlight=False)
+                            elif response_text.endswith("```\n") or response_text.endswith("```"):
+                                console.print(response_text, highlight=False, end="")
+                        except json.JSONDecodeError:
+                            continue
+        finally:
+            spinner.stop()
 
         return response_text
 

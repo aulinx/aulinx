@@ -9,6 +9,7 @@ from rich.console import Console
 
 from aulinx import __version__
 from aulinx.agent import Agent
+from aulinx.completer import AulinxCompleter
 from aulinx.config import load_config
 
 console = Console()
@@ -46,6 +47,11 @@ def parse_args() -> argparse.Namespace:
         help="Resume the last conversation session",
     )
     parser.add_argument(
+        "--doctor",
+        action="store_true",
+        help="Run diagnostic check on system dependencies",
+    )
+    parser.add_argument(
         "--version",
         action="version",
         version=f"aulinx {__version__}",
@@ -74,7 +80,8 @@ async def run_interactive(agent: Agent, resume: bool = False):
             agent.history = prev
             console.print(f"[dim]  Resumed session with {len(prev)} messages.[/dim]\n")
 
-    session = PromptSession()
+    completer = AulinxCompleter(list(agent.tools._tools.keys()))
+    session = PromptSession(completer=completer)
 
     while True:
         try:
@@ -153,6 +160,10 @@ async def _handle_slash_command(text: str, agent: Agent):
         ctx = await agent.context.snapshot()
         console.print(f"\n[bold]Desktop context:[/bold]\n{ctx}\n")
 
+    elif cmd == "/doctor":
+        from aulinx.doctor import run_doctor
+        await run_doctor(agent.base_url)
+
     elif cmd == "/help":
         console.print("""
 [bold]Commands:[/bold]
@@ -160,6 +171,7 @@ async def _handle_slash_command(text: str, agent: Agent):
   /context  — Show current desktop context
   /history  — Show past conversation sessions
   /audit    — Show recent tool calls
+  /doctor   — Check system dependencies
   /clear    — Clear conversation history
   /help     — Show this help
 """)
@@ -169,6 +181,13 @@ async def _handle_slash_command(text: str, agent: Agent):
 
 def main():
     args = parse_args()
+
+    if args.doctor:
+        from aulinx.doctor import run_doctor
+        config = load_config()
+        asyncio.run(run_doctor(args.base_url or config.llm.base_url))
+        return
+
     agent = _build_agent(args)
 
     if args.command:
