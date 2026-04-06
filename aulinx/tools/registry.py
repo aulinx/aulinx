@@ -27,11 +27,13 @@ class ToolRegistry:
             dbus_tools,
             display,
             files,
+            input_sim,
             memory,
             network,
             notify,
             power,
             process,
+            services,
             system,
             theme,
             window,
@@ -40,7 +42,7 @@ class ToolRegistry:
         for module in [
             window, atspi_tools, files, apps, system, clipboard,
             notify, dbus_tools, process, network, audio, display,
-            power, theme, memory, bluetooth, workflow,
+            power, theme, memory, bluetooth, workflow, services, input_sim,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
