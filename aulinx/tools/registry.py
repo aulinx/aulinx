@@ -31,18 +31,23 @@ class ToolRegistry:
             memory,
             network,
             notify,
+            packages,
             power,
             process,
             services,
+            session,
             system,
             theme,
+            timer,
             window,
             workflow,
+            xdg,
         )
         for module in [
             window, atspi_tools, files, apps, system, clipboard,
             notify, dbus_tools, process, network, audio, display,
-            power, theme, memory, bluetooth, workflow, services, input_sim,
+            power, theme, memory, bluetooth, workflow, services,
+            input_sim, session, packages, xdg, timer,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
