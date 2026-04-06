@@ -107,12 +107,11 @@ class Agent:
         role = response_msg.get("role", "assistant")
         content = response_msg.get("content", "")
         tool_calls = response_msg.get("tool_calls")
+        is_native = result.get("_native", True)  # fallback sets this to False
 
-        # Debug: show if native tool calling was used
         if tool_calls:
-            console.print("[dim]  (native tool calling)[/dim]")
-        elif content and ("```json" in content or '"tool"' in content):
-            console.print("[dim]  (text fallback — model generated JSON as text)[/dim]")
+            mode = "native" if is_native else "text-fallback"
+            console.print(f"[dim]  ({mode} tool calling)[/dim]")
 
         # Print text content (if any)
         if content:
@@ -251,9 +250,8 @@ class Agent:
                     console.print("[yellow]Timed out. Try a simpler query.[/yellow]")
                     return None
             except httpx.HTTPStatusError as e:
-                console.print(f"[red]Ollama error: {e.response.status_code}[/red]")
+                console.print(f"[red]Ollama error: {e.response.status_code} — {e.response.text[:200]}[/red]")
                 if e.response.status_code == 400:
-                    # Model might not support tools — fall back to text mode
                     console.print("[dim]Falling back to text mode (model may not support tool calling)[/dim]")
                     return await self._chat_text_fallback(messages)
                 return None
@@ -307,6 +305,7 @@ class Agent:
         if tool_call:
             name, args = tool_call
             return {
+                "_native": False,
                 "message": {
                     "role": "assistant",
                     "content": response_text,
