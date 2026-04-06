@@ -23,56 +23,64 @@
 
 ## What is Aulinx?
 
-Aulinx replaces your Linux desktop (GNOME/KDE) with an AI-first interface. A local LLM running on your GPU is the primary way you interact with your computer.
+Aulinx is an AI agent that controls your entire Linux desktop through natural language. It sees every app via AT-SPI, reads UI elements, clicks buttons, types text, manages files, and controls system settings — with 92 tools and a local LLM.
 
 ```
 aulinx > why is my computer slow right now?
 
   > process_list(sort_by=cpu)
 
-  ┌─ Result ──────────────────────────────────────────┐
-  │ firefox (42% CPU), code (18% CPU), slack (8% CPU) │
-  └───────────────────────────────────────────────────┘
+  ┌─ Result (9ms) ────────────────────────────────────┐
+  │ firefox (42% CPU), code (18% CPU), slack (8% CPU)  │
+  └────────────────────────────────────────────────────┘
 
-  Firefox is consuming 42% of your CPU. It has 47 tabs open.
-  Want me to find the heaviest tabs, or kill some background processes?
+  Firefox is consuming 42% of your CPU with 47 tabs open.
+  Want me to kill background processes?
+
+aulinx > type "Hello from Aulinx!" in gedit
+
+  > atspi_set_text(app_name=gedit, element_name=Search, text=Hello from Aulinx!)
+
+  ┌─ Result (40ms) ──────────────────────────────────┐
+  │ "Set text on 'Search': 'Hello from Aulinx!'"      │
+  └────────────────────────────────────────────────────┘
 ```
 
-Aulinx sees **every app** on your desktop simultaneously via AT-SPI (Linux accessibility API), can read UI elements, click buttons, type text, manage files, control system settings — all through natural language.
+Unlike other AI desktop agents that use screenshots, Aulinx reads the actual UI structure via AT-SPI — **3x faster, works semantically, no OCR needed**.
 
 ## How It Works
 
-Aulinx combines three things nobody else has put together:
-
-1. **AT-SPI** (Linux accessibility API) to read and control any app's UI — buttons, text, menus — semantically, not by screenshots
-2. **Local LLM** (14B model on your GPU, ~30-50 tok/s) for natural language understanding and tool calling
-3. **55 desktop tools** covering windows, files, apps, processes, network, audio, display, bluetooth, power, themes, clipboard, notifications, D-Bus, and persistent memory
-
 ```
 ┌──────────────────────────────────────────────────┐
-│  CLI (interactive REPL or one-shot commands)      │
+│  Command Palette UI (React + WebSocket)           │
+│  Or CLI (interactive REPL / one-shot)             │
 ├──────────────────────────────────────────────────┤
-│  Agent (streaming LLM + tool calling + audit)     │
+│  Agent (Ollama native tool calling + audit)        │
 ├──────────────────────────────────────────────────┤
-│  55 Tools across 17 modules                       │
-│  AT-SPI, files, apps, process, network, audio...  │
+│  92 Tools across 23 modules                       │
+│  AT-SPI, files, git, process, network, audio...   │
 ├──────────────────────────────────────────────────┤
-│  Linux desktop (GNOME, KDE, Sway, etc.)           │
+│  Linux desktop (GNOME, KDE, Sway, Xfce)           │
 │  UNTOUCHED — Aulinx runs on top                   │
 └──────────────────────────────────────────────────┘
 ```
 
+1. **AT-SPI** (Linux accessibility API) reads and controls any app's UI — buttons, text, menus — semantically
+2. **Ollama native tool calling** with qwen2.5:14b or any compatible model
+3. **92 desktop tools** covering every aspect of a Linux desktop
+4. **5-tier permission system** — read-only auto-allowed, destructive always confirms
+
 ## Getting Started
 
-> Phase 0 — works on any existing Linux desktop. No custom compositor needed.
+> Works on any existing Linux desktop (GNOME, KDE, Sway, Xfce). No custom compositor needed.
 
 ### Prerequisites
 
 - Linux with a running desktop (Wayland or X11)
 - Python 3.10+
-- [Ollama](https://ollama.ai) installed and running
+- [Ollama](https://ollama.ai) with a model that supports tool calling
 - NVIDIA GPU recommended (RTX 3060+ for good performance)
-- Optional: `python3-pyatspi` for GUI control (`apt install python3-pyatspi`)
+- `python3-pyatspi` for GUI control (`apt install python3-pyatspi`)
 
 ### Install
 
@@ -92,27 +100,44 @@ aulinx
 # One-shot command
 aulinx -c "what windows do I have open?"
 
-# Use a different model
-aulinx -m qwen2.5:7b
+# Use a specific model
+aulinx -m qwen2.5:14b
+
+# Start the web UI
+aulinx --serve
+cd ui && npm install && npm run dev
+# Open http://localhost:5173
 
 # Resume last conversation
 aulinx --resume
+
+# Check system dependencies
+aulinx --doctor
+```
+
+### Docker (test with a full desktop)
+
+```bash
+docker compose -f docker/docker-compose.yml up
+# Open http://localhost:6080/vnc.html (password: aulinx)
+# Inside container: aulinx -m qwen2.5:14b --base-url http://host.docker.internal:11434
 ```
 
 ### Slash Commands
 
 ```
-/tools    — List all 55 available tools
+/tools    — List all 92 available tools
 /context  — Show current desktop context
 /history  — Browse past conversation sessions
 /audit    — Show recent tool calls with timing
+/doctor   — Check system dependencies
 /clear    — Clear conversation history
 /help     — Show help
 ```
 
 ### Configuration
 
-Config lives at `~/.config/aulinx/config.toml` (auto-created on first run):
+Config at `~/.config/aulinx/config.toml` (auto-created on first run):
 
 ```toml
 [llm]
@@ -127,27 +152,37 @@ temperature = 0.3
 
 ## Tools
 
-55 tools across 17 modules, organized by permission tier:
+92 tools across 23 modules:
 
-| Category | Tools | Tier |
-|----------|-------|------|
-| **Window** | list, get_focused | Read |
-| **AT-SPI** | get_tree, find_elements, read_text, do_action, set_text, screenshot | Read / Mutate |
-| **Files** | read, write, edit, move, trash, list, search | Read / Mutate / Destructive |
-| **Apps** | launch, list_running | Read / Mutate |
-| **Process** | list, kill | Read / Destructive |
-| **Network** | status, wifi_list, wifi_connect, wifi_disconnect | Read / Mutate / Destructive |
-| **Audio** | get_volume, set_volume, mute | Read / Low-risk |
-| **Display** | list, brightness | Read / Low-risk |
-| **Power** | status, profile, suspend, shutdown | Read / Mutate / Irreversible |
-| **Theme** | get, set_dark, wallpaper_set | Read / Low-risk |
-| **Bluetooth** | status, scan, connect, disconnect, toggle | Read / Mutate |
-| **Clipboard** | get, set | Read / Low-risk |
-| **Notifications** | send | Low-risk |
-| **Memory** | store, get, delete, list_namespaces | Read / Low-risk / Destructive |
-| **D-Bus** | list_services, introspect, call | Read / Destructive |
-| **System** | info, shell_exec | Read / Destructive |
-| **Workflow** | context_get, wait, audit_recent | Read |
+| Category | Tools | Count |
+|----------|-------|-------|
+| **Window** | list, get_focused | 2 |
+| **AT-SPI** | get_tree, find_elements, do_action, read_text, set_text, screenshot | 6 |
+| **Files** | read, write, edit, move, trash, list, search | 7 |
+| **Text** | count, grep, replace, head, tail | 5 |
+| **Git** | status, log, diff, commit, branch, stash | 6 |
+| **Apps** | launch, list_running | 2 |
+| **Process** | list, kill | 2 |
+| **Services** | list, status, start, stop, restart | 5 |
+| **Network** | status, wifi_list, wifi_connect, wifi_disconnect | 4 |
+| **Audio** | get_volume, set_volume, mute | 3 |
+| **Display** | list, brightness | 2 |
+| **Power** | status, profile, suspend, shutdown | 4 |
+| **Theme** | get, set_dark, wallpaper_set | 3 |
+| **Bluetooth** | status, scan, connect, disconnect, toggle | 5 |
+| **Input** | key_combo, type_text | 2 |
+| **Session** | who_am_i, uptime, disk_usage, env_get | 4 |
+| **Packages** | search, install, list_installed | 3 |
+| **XDG** | open, default_app_get, default_app_set, mime_type_of | 4 |
+| **Timer** | set_timer, cancel_timer, list_timers | 3 |
+| **Clipboard** | get, set | 2 |
+| **Notifications** | send | 1 |
+| **Memory** | store, get, delete, list_namespaces | 4 |
+| **D-Bus** | list_services, introspect, call | 3 |
+| **OCR** | screenshot_ocr, image_ocr | 2 |
+| **DateTime** | now, convert, calendar_show | 3 |
+| **System** | info, shell_exec | 2 |
+| **Workflow** | context_get, wait, audit_recent | 3 |
 
 ### Permission Tiers
 
@@ -161,9 +196,10 @@ temperature = 0.3
 
 ## Roadmap
 
-- [x] Research & architecture design (15-part technical document)
-- [x] **Phase 0**: AI agent + 55 tools + CLI + tests + CI
-- [ ] **Phase 1**: Command palette overlay on existing Wayland compositor
+- [x] Research & architecture design
+- [x] **Phase 0**: 92 tools + CLI + tests + CI + audit + memory
+- [x] **Phase 1**: Web command palette UI + WebSocket server
+- [x] **Tested**: AT-SPI GUI control on real Linux (Docker + VNC)
 - [ ] **Phase 2**: Custom Wayland compositor with AI IPC
 - [ ] **Phase 3**: Full AI desktop environment (daily-drivable)
 - [ ] **Phase 4**: Distributable Linux distro image
@@ -174,10 +210,12 @@ temperature = 0.3
 
 ## Contributing
 
+See [CONTRIBUTING.md](CONTRIBUTING.md) for development setup, code style, and how to add new tools.
+
 ```bash
 pip install -e ".[dev]"
-pytest tests/ -v          # run tests
-ruff check aulinx/ tests/ # lint
+make test   # run tests
+make lint   # check code style
 ```
 
 ## License
