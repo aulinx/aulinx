@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     gedit nautilus firefox eog evince \
     # System tools aulinx needs
     procps psmisc net-tools iproute2 \
+    xdotool libxtst6 \
     systemd-sysv \
     network-manager \
     pulseaudio \

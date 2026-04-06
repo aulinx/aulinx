@@ -138,15 +138,21 @@ class ToolRegistry:
         return [tool.to_ollama_schema() for tool in sorted(tools, key=lambda t: t.name)]
 
     async def execute(self, name: str, args: dict[str, Any]) -> Any:
-        """Execute a tool by name."""
+        """Execute a tool by name. Strips unknown kwargs to prevent crashes."""
         tool = self._tools.get(name)
         if not tool:
             return {"error": f"Unknown tool: {name}"}
 
         self.mark_confirmed(name)
 
+        # Strip unknown kwargs — LLMs sometimes hallucinate extra parameters
+        import inspect
+        sig = inspect.signature(tool.fn)
+        valid_params = set(sig.parameters.keys())
+        cleaned_args = {k: v for k, v in args.items() if k in valid_params}
+
         try:
-            return await tool.fn(**args)
+            return await tool.fn(**cleaned_args)
         except TypeError as e:
             return {"error": f"Bad arguments for {name}: {e}"}
         except Exception as e:
