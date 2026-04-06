@@ -2,12 +2,15 @@
 
 import json
 import re
+import time
 import httpx
 from rich.console import Console
 from rich.panel import Panel
 
 from aulinx.context.desktop import DesktopContext
 from aulinx.tools.registry import ToolRegistry
+from aulinx.audit import AuditLog
+from aulinx.history import HistoryManager
 
 console = Console()
 
@@ -72,6 +75,8 @@ class Agent:
         self.max_history = max_history
         self.context = DesktopContext()
         self.tools = ToolRegistry()
+        self.audit = AuditLog()
+        self.history_mgr = HistoryManager()
         self.history: list[dict] = []
 
     async def initialize(self):
@@ -124,6 +129,7 @@ class Agent:
         console.print()
 
         self.history.append({"role": "assistant", "content": response_text})
+        self.history_mgr.save(self.history)
 
         # Try to extract and execute tool call
         tool_call = _extract_tool_call(response_text)
@@ -160,9 +166,14 @@ class Agent:
                     f"  [dim]> {tool_name}({_format_args(args)})[/dim]"
                 )
 
-            # Execute
+            # Execute with timing
+            t0 = time.monotonic()
             result = await self.tools.execute(tool_name, args)
+            duration_ms = int((time.monotonic() - t0) * 1000)
             result_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
+
+            # Audit log
+            self.audit.log(tool_name, args, result_str, duration_ms)
 
             # Truncate large results
             if len(result_str) > 3000:
