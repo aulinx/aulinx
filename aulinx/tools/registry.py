@@ -9,6 +9,7 @@ from typing import Any, Callable, Awaitable
 from aulinx.tools import (
     window, atspi_tools, files, apps, system, clipboard,
     notify, dbus_tools, process, network, audio, display,
+    power, theme, memory, bluetooth,
 )
 
 
@@ -52,6 +53,7 @@ class ToolRegistry:
         for module in [
             window, atspi_tools, files, apps, system, clipboard,
             notify, dbus_tools, process, network, audio, display,
+            power, theme, memory, bluetooth,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool

@@ -8,7 +8,7 @@ Aulinx replaces the traditional Linux desktop (GNOME/KDE) with an AI-first inter
 - `aulinx/agent.py` — Core agent (LLM chat + tool calling loop)
 - `aulinx/context/desktop.py` — Desktop state collection (AT-SPI, system info, clipboard)
 - `aulinx/tools/registry.py` — Tool registration with permission tiers (T0-T4)
-- `aulinx/tools/*.py` — Individual tool modules (window, atspi, files, apps, system, clipboard, notify)
+- `aulinx/tools/*.py` — Individual tool modules (16 modules, 50+ tools)
 
 ## Key Patterns
 - Tools are registered in each module's `TOOLS` list as `Tool` objects with a `Tier` level
