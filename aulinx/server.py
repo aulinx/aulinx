@@ -36,17 +36,38 @@ class WebSocketServer:
         console.print(f"[bold gold1]Aulinx[/bold gold1] WebSocket server on ws://{self.host}:{self.port}")
 
         import logging
-        logging.getLogger("websockets").setLevel(logging.ERROR)
+        logging.getLogger("websockets").setLevel(logging.CRITICAL)
 
-        async with websockets.serve(self._handle_client, self.host, self.port):
+        async with websockets.serve(
+            self._handle_client,
+            self.host,
+            self.port,
+            logger=logging.getLogger("websockets.server"),
+        ):
             await asyncio.Future()  # run forever
 
     async def _handle_client(self, ws):
         """Handle a single WebSocket client connection."""
+        try:
+            # Wait for first message to confirm it's a real client
+            raw = await asyncio.wait_for(ws.recv(), timeout=5)
+        except Exception:
+            return  # silently drop non-websocket connections
+
         console.print("[dim]Client connected[/dim]")
         agent = self.agent
 
         try:
+            # Process first message
+            try:
+                data = json.loads(raw)
+                if data.get("type") == "message" and data.get("content", "").strip():
+                    agent.history.append({"role": "user", "content": data["content"].strip()})
+                    await self._process_message(ws, agent)
+            except json.JSONDecodeError:
+                pass
+
+            # Process remaining messages
             async for raw in ws:
                 try:
                     data = json.loads(raw)
