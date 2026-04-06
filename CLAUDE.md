@@ -1,32 +1,50 @@
 # Aulinx — AI-Native Linux Desktop
 
 ## Project Overview
-Aulinx replaces the traditional Linux desktop (GNOME/KDE) with an AI-first interface powered by a local LLM. Currently in Phase 0 (proof of concept).
+Aulinx is an AI agent with 92 tools that controls a Linux desktop through natural language. Uses AT-SPI (accessibility API) for semantic GUI control + Ollama for local LLM inference with native tool calling.
 
 ## Architecture
-- `aulinx/cli.py` — Interactive REPL entry point
-- `aulinx/agent.py` — Core agent (LLM chat + tool calling loop)
-- `aulinx/context/desktop.py` — Desktop state collection (AT-SPI, system info, clipboard)
-- `aulinx/tools/registry.py` — Tool registration with permission tiers (T0-T4)
-- `aulinx/tools/*.py` — Individual tool modules (16 modules, 50+ tools)
+```
+aulinx/
+├── cli.py              — Interactive REPL + one-shot + slash commands + --serve
+├── agent.py            — Ollama native tool calling + text fallback + retry + audit
+├── server.py           — WebSocket server for React UI palette
+├── config.py           — ~/.config/aulinx/config.toml loader
+├── audit.py            — JSONL audit log with secret redaction
+├── history.py          — Session persistence + resume
+├── completer.py        — Tab completion for /commands and @tools
+├── doctor.py           — Dependency diagnostics (aulinx --doctor)
+├── context/desktop.py  — AT-SPI + system state collector
+└── tools/
+    ├── base.py         — Tool + Tier types, Ollama schema generation
+    ├── registry.py     — Registration, permission checking, kwarg stripping
+    └── 23 tool modules (92 tools total)
+```
 
 ## Key Patterns
-- Tools are registered in each module's `TOOLS` list as `Tool` objects with a `Tier` level
-- The agent streams responses from Ollama and extracts JSON tool calls
-- Tool calls use the format: `{"tool": "name", "args": {"key": "value"}}`
-- AT-SPI (pyatspi) is the primary way to read/control GUI apps — prefer it over shell commands
-- Permission tiers: OBSERVE (auto), LOW_RISK (auto+log), MUTATE (confirm once), DESTRUCTIVE (always confirm)
+- **Native tool calling**: Agent sends `tools` array to Ollama `/api/chat`. Model returns structured `tool_calls`. Falls back to regex JSON extraction for models without tool support.
+- **Kwarg stripping**: `registry.execute()` uses `inspect.signature()` to strip hallucinated parameters before calling tool functions.
+- **Permission tiers**: OBSERVE (auto), LOW_RISK (auto+log), MUTATE (confirm once), DESTRUCTIVE (always confirm), IRREVERSIBLE (always + warning).
+- **Core tools**: Only 50 most-used tools sent to Ollama (fits in context window). All 92 still available via fallback.
+- **Tool schema**: `Tool.to_ollama_schema()` auto-generates OpenAI function calling JSON Schema from parameter descriptions.
 
 ## Dev Setup
-Runs on Linux with a desktop environment. Requires Python 3.10+, Ollama, and optionally pyatspi.
 ```bash
-pip install -e .
-ollama pull qwen2.5:14b
-aulinx
+pip install -e ".[dev]"
+make test    # 71 unit tests + 35 integration tests (Linux only)
+make lint    # ruff
+```
+
+## Docker Desktop (for testing GUI)
+```bash
+docker compose -f docker/docker-compose.yml up
+# Open http://localhost:6080/vnc.html (password: aulinx)
+# Inside: aulinx -m qwen2.5:14b --base-url http://host.docker.internal:11434
 ```
 
 ## Code Style
 - Python 3.10+ with type hints
 - async/await for all tool functions
-- Rich library for terminal UI
-- Keep tool modules focused — one file per domain
+- Rich for terminal UI, react-markdown for web UI
+- One file per tool domain in aulinx/tools/
+- Tools return dicts/lists (JSON-serializable), `{"error": "..."}` on failure
