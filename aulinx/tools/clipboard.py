@@ -1,7 +1,8 @@
 """Clipboard tools — read and write the system clipboard."""
 
 import subprocess
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 async def clipboard_get() -> dict:

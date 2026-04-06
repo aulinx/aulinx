@@ -1,7 +1,8 @@
 """Bluetooth tools — scan, pair, connect via bluetoothctl."""
 
 import subprocess
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 def _bluetoothctl(*args: str, timeout: int = 10) -> dict:
@@ -98,7 +99,6 @@ async def bluetooth_disconnect(address: str) -> dict:
 
 async def bluetooth_toggle(on: bool = True) -> dict:
     """Turn Bluetooth on or off."""
-    action = "power" + (" on" if on else " off")
     r = _bluetoothctl("power", "on" if on else "off")
     if "error" in r:
         return r

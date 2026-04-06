@@ -10,11 +10,33 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 dependencies = [
-    "pyatspi",
     "httpx",
     "rich",
     "prompt_toolkit",
 ]
 
+# pyatspi is Linux-only, installed via system package manager:
+# apt install python3-pyatspi (Debian/Ubuntu)
+# dnf install python3-pyatspi2 (Fedora)
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "ruff",
+]
+
 [project.scripts]
 aulinx = "aulinx.cli:main"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]  # line length handled by formatter, not linter

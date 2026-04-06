@@ -1,9 +1,10 @@
 """Theme and appearance tools — dark/light mode, wallpaper, GTK/Qt theme."""
 
-import subprocess
 import os
+import subprocess
 from pathlib import Path
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 def _gsettings(schema: str, key: str, value: str | None = None) -> dict:
@@ -105,7 +106,7 @@ async def wallpaper_set(path: str) -> dict:
 
     if "gnome" in desktop or "unity" in desktop or "budgie" in desktop:
         r1 = _gsettings("org.gnome.desktop.background", "picture-uri", uri)
-        r2 = _gsettings("org.gnome.desktop.background", "picture-uri-dark", uri)
+        _gsettings("org.gnome.desktop.background", "picture-uri-dark", uri)
         if "error" in r1:
             return r1
         return {"wallpaper": str(p), "set": True}

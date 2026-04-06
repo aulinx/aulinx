@@ -2,11 +2,10 @@
 
 import argparse
 import asyncio
-import sys
 
-from rich.console import Console
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
+from rich.console import Console
 
 from aulinx import __version__
 from aulinx.agent import Agent

@@ -1,7 +1,8 @@
 """Process management tools — list, inspect, kill processes."""
 
 import subprocess
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 async def process_list(sort_by: str = "cpu", limit: int = 20) -> list[dict]:

@@ -3,14 +3,15 @@
 import json
 import re
 import time
+
 import httpx
 from rich.console import Console
 from rich.panel import Panel
 
-from aulinx.context.desktop import DesktopContext
-from aulinx.tools.registry import ToolRegistry
 from aulinx.audit import AuditLog
+from aulinx.context.desktop import DesktopContext
 from aulinx.history import HistoryManager
+from aulinx.tools.registry import ToolRegistry
 
 console = Console()
 

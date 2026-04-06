@@ -3,7 +3,8 @@
 import json
 import time
 from pathlib import Path
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 MEMORY_DIR = Path.home() / ".local/share/aulinx"
 MEMORY_FILE = MEMORY_DIR / "memory.json"

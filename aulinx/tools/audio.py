@@ -1,7 +1,8 @@
 """Audio tools — volume control via wpctl (PipeWire) or pactl (PulseAudio)."""
 
 import subprocess
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 def _run(cmd: list[str], timeout: int = 5) -> dict:

@@ -1,8 +1,9 @@
 """Application management tools."""
 
-import subprocess
 import shutil
-from aulinx.tools.registry import Tool, Tier
+import subprocess
+
+from aulinx.tools.base import Tier, Tool
 
 
 async def app_launch(app: str) -> str:

@@ -2,7 +2,8 @@
 
 import subprocess
 import xml.etree.ElementTree as ET
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 async def dbus_list_services(bus: str = "session") -> list[str]:

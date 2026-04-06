@@ -1,8 +1,8 @@
 """AT-SPI tools — read and interact with application UIs."""
 
-import json
 from pathlib import Path
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 async def atspi_get_tree(app_name: str = "", max_depth: int = 3) -> dict | list:

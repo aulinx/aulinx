@@ -1,6 +1,6 @@
 """Window management tools — list, focus, close windows."""
 
-from aulinx.tools.registry import Tool, Tier
+from aulinx.tools.base import Tier, Tool
 
 
 async def window_list() -> list[dict]:

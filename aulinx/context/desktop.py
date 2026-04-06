@@ -1,8 +1,8 @@
 """Desktop context — gathers current state of the user's desktop via AT-SPI and system APIs."""
 
 import json
-import subprocess
 import os
+import subprocess
 from datetime import datetime
 
 

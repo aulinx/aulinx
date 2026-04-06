@@ -1,7 +1,8 @@
 """Notification tools — send desktop notifications via D-Bus."""
 
 import subprocess
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 async def notification_send(

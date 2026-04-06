@@ -1,7 +1,8 @@
 """Network tools — status, wifi, connections via nmcli (NetworkManager)."""
 
 import subprocess
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 def _nmcli(*args: str, timeout: int = 10) -> dict:

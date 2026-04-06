@@ -1,8 +1,7 @@
 """Configuration — loads from ~/.config/aulinx/config.toml."""
 
-import os
-from pathlib import Path
 from dataclasses import dataclass, field
+from pathlib import Path
 
 CONFIG_DIR = Path.home() / ".config" / "aulinx"
 CONFIG_FILE = CONFIG_DIR / "config.toml"

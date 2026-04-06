@@ -2,7 +2,8 @@
 
 import subprocess
 from pathlib import Path
-from aulinx.tools.registry import Tool, Tier
+
+from aulinx.tools.base import Tier, Tool
 
 
 async def display_list() -> list[dict]:
