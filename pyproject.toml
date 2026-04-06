@@ -13,6 +13,7 @@ dependencies = [
     "httpx",
     "rich",
     "prompt_toolkit",
+    "websockets",
 ]
 
 # pyatspi is Linux-only, installed via system package manager:

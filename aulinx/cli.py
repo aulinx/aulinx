@@ -47,6 +47,17 @@ def parse_args() -> argparse.Namespace:
         help="Resume the last conversation session",
     )
     parser.add_argument(
+        "--serve",
+        action="store_true",
+        help="Start WebSocket server for the UI command palette (ws://localhost:8765)",
+    )
+    parser.add_argument(
+        "--port",
+        type=int,
+        default=8765,
+        help="WebSocket server port (default: 8765)",
+    )
+    parser.add_argument(
         "--doctor",
         action="store_true",
         help="Run diagnostic check on system dependencies",
@@ -186,6 +197,11 @@ def main():
         from aulinx.doctor import run_doctor
         config = load_config()
         asyncio.run(run_doctor(args.base_url or config.llm.base_url))
+        return
+
+    if args.serve:
+        from aulinx.server import run_server
+        asyncio.run(run_server(port=args.port))
         return
 
     agent = _build_agent(args)
