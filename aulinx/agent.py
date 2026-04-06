@@ -107,15 +107,10 @@ class Agent:
         role = response_msg.get("role", "assistant")
         content = response_msg.get("content", "")
         tool_calls = response_msg.get("tool_calls")
-        is_native = result.get("_native", True)  # fallback sets this to False
 
-        if tool_calls:
-            mode = "native" if is_native else "text-fallback"
-            console.print(f"[dim]  ({mode} tool calling)[/dim]")
-
-        # Print text content (if any)
-        if content:
-            # Strip any leftover JSON tool blocks from content
+        # Print text content — but NOT if native tool calls are present
+        # (native mode often returns both content and tool_calls, content is noise)
+        if content and not tool_calls:
             cleaned = _strip_json_blocks(content)
             if cleaned:
                 console.print(cleaned)
