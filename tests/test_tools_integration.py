@@ -36,7 +36,7 @@ class TestFileTools:
 
     @pytest.mark.asyncio
     async def test_file_write_and_read(self, tmp_path):
-        from aulinx.tools.files import file_write, file_read
+        from aulinx.tools.files import file_read, file_write
         path = str(tmp_path / "test.txt")
         w = await file_write(path, "hello aulinx")
         assert w["written"] is True
@@ -45,7 +45,7 @@ class TestFileTools:
 
     @pytest.mark.asyncio
     async def test_file_edit(self, tmp_path):
-        from aulinx.tools.files import file_write, file_edit, file_read
+        from aulinx.tools.files import file_edit, file_read, file_write
         path = str(tmp_path / "edit.txt")
         await file_write(path, "old text here")
         result = await file_edit(path, "old text", "new text")
@@ -55,14 +55,14 @@ class TestFileTools:
 
     @pytest.mark.asyncio
     async def test_file_search(self, tmp_path):
-        from aulinx.tools.files import file_write, file_search
+        from aulinx.tools.files import file_search, file_write
         await file_write(str(tmp_path / "findme.txt"), "data")
         result = await file_search("findme", str(tmp_path))
         assert any("findme" in r for r in result)
 
     @pytest.mark.asyncio
     async def test_file_trash(self, tmp_path):
-        from aulinx.tools.files import file_write, file_trash
+        from aulinx.tools.files import file_trash, file_write
         path = str(tmp_path / "trashme.txt")
         await file_write(path, "goodbye")
         result = await file_trash(path)
@@ -248,6 +248,7 @@ class TestMemoryToolsIntegration:
     @pytest.mark.asyncio
     async def test_full_memory_cycle(self, tmp_path):
         from unittest.mock import patch
+
         from aulinx.tools import memory as mem
         mem_file = tmp_path / "memory.json"
         with patch.object(mem, "MEMORY_DIR", tmp_path), \
@@ -297,7 +298,7 @@ class TestServiceTools:
 class TestTimerTools:
     @pytest.mark.asyncio
     async def test_set_and_list_timer(self):
-        from aulinx.tools.timer import set_timer, list_timers, cancel_timer
+        from aulinx.tools.timer import cancel_timer, list_timers, set_timer
         result = await set_timer(seconds=300, message="test timer")
         assert "timer_id" in result
         tid = result["timer_id"]
@@ -343,6 +344,7 @@ class TestWorkflowTools:
     @pytest.mark.asyncio
     async def test_wait(self):
         import time
+
         from aulinx.tools.workflow import wait
         t0 = time.monotonic()
         result = await wait(seconds=0.5, reason="test")

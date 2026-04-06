@@ -98,6 +98,10 @@ class ToolRegistry:
                 lines.append(f"- {tool.name} [{tier_label}]: {tool.description}{params}")
         return "\n".join(lines)
 
+    def to_ollama_tools(self) -> list[dict]:
+        """Return all tools as Ollama/OpenAI function calling schemas."""
+        return [tool.to_ollama_schema() for tool in sorted(self._tools.values(), key=lambda t: t.name)]
+
     async def execute(self, name: str, args: dict[str, Any]) -> Any:
         """Execute a tool by name."""
         tool = self._tools.get(name)

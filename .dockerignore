@@ -1,0 +1,11 @@
+.venv
+.git
+.pytest_cache
+.ruff_cache
+__pycache__
+node_modules
+dist
+*.egg-info
+npm-placeholder
+ui/node_modules
+ui/dist

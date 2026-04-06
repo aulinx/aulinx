@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Desktop environment
     xfce4 xfce4-terminal xfce4-goodies dbus-x11 \
     # VNC + noVNC
-    tigervnc-standalone-server tigervnc-common \
+    tightvncserver \
     novnc websockify \
     # AT-SPI accessibility
     at-spi2-core libatk-adaptor python3-pyatspi \
@@ -26,8 +26,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build tools
     python3 python3-pip python3-venv python3-gi \
     git curl wget sudo \
+    # Fonts (required for VNC/X11)
+    xfonts-base xfonts-75dpi xfonts-100dpi fonts-noto-color-emoji \
     # Misc
-    locales fonts-noto-color-emoji \
+    locales \
     && locale-gen en_US.UTF-8 \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
@@ -36,10 +38,10 @@ RUN useradd -m -s /bin/bash -G sudo aulinx \
     && echo "aulinx:aulinx" | chpasswd \
     && echo "aulinx ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
-# VNC setup
+# VNC setup — set password non-interactively
 RUN mkdir -p /home/aulinx/.vnc \
-    && echo "aulinx" | vncpasswd -f > /home/aulinx/.vnc/passwd \
-    && chmod 600 /home/aulinx/.vnc/passwd \
+    && printf "aulinx\naulinx\nn\n" | su - aulinx -c "vncpasswd" 2>/dev/null \
+    || (echo "aulinx" | vncpasswd -f > /home/aulinx/.vnc/passwd && chmod 600 /home/aulinx/.vnc/passwd) \
     && chown -R aulinx:aulinx /home/aulinx/.vnc
 
 # Install aulinx

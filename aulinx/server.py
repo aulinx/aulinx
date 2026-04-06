@@ -1,17 +1,17 @@
-"""WebSocket server — bridges the UI command palette to the agent."""
+"""WebSocket server — bridges the UI command palette to the agent with native tool calling."""
 
 import asyncio
 import json
+import time
 
+import httpx
 import websockets
 from rich.console import Console
 
-from aulinx.agent import Agent, _extract_tool_call
+from aulinx.agent import Agent, _strip_json_blocks
 from aulinx.config import load_config
 
 console = Console()
-
-SYSTEM_PROMPT_FOR_WS = None  # populated from agent
 
 
 class WebSocketServer:
@@ -46,158 +46,153 @@ class WebSocketServer:
             ping_interval=30,
             ping_timeout=10,
         ):
-            await asyncio.Future()  # run forever
+            await asyncio.Future()
 
     async def _handle_client(self, ws):
         """Handle a single WebSocket client connection."""
         try:
-            # Wait for first message to confirm it's a real client
             raw = await asyncio.wait_for(ws.recv(), timeout=5)
         except Exception:
-            return  # silently drop non-websocket connections
+            return
 
         console.print("[dim]Client connected[/dim]")
         agent = self.agent
 
         try:
             # Process first message
-            try:
-                data = json.loads(raw)
-                if data.get("type") == "message" and data.get("content", "").strip():
-                    agent.history.append({"role": "user", "content": data["content"].strip()})
-                    await self._process_message(ws, agent)
-            except json.JSONDecodeError:
-                pass
+            await self._handle_raw_message(ws, agent, raw)
 
             # Process remaining messages
             async for raw in ws:
-                try:
-                    data = json.loads(raw)
-                except json.JSONDecodeError:
-                    await ws.send(json.dumps({"type": "error", "message": "Invalid JSON"}))
-                    continue
-
-                if data.get("type") != "message":
-                    continue
-
-                user_input = data.get("content", "").strip()
-                if not user_input:
-                    continue
-
-                agent.history.append({"role": "user", "content": user_input})
-
-                # Process with streaming
-                try:
-                    await self._process_message(ws, agent)
-                except Exception as e:
-                    console.print(f"[red]Error processing message: {e}[/red]")
-                    try:
-                        await ws.send(json.dumps({"type": "error", "message": str(e)}))
-                        await ws.send(json.dumps({"type": "done"}))
-                    except Exception:
-                        pass
+                await self._handle_raw_message(ws, agent, raw)
 
         except websockets.ConnectionClosed:
             console.print("[dim]Client disconnected[/dim]")
         except Exception as e:
             console.print(f"[red]Client handler error: {e}[/red]")
 
-    async def _process_message(self, ws, agent: Agent, depth: int = 0):
-        """Process a message through the agent and stream results to WebSocket."""
-        if depth > 5:
+    async def _handle_raw_message(self, ws, agent: Agent, raw: str):
+        """Parse and process a single WebSocket message."""
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            await ws.send(json.dumps({"type": "error", "message": "Invalid JSON"}))
             return
 
-        # Build messages
-        ctx = await agent.context.snapshot()
+        if data.get("type") != "message":
+            return
+
+        user_input = data.get("content", "").strip()
+        if not user_input:
+            return
+
+        agent.history.append({"role": "user", "content": user_input})
+
+        try:
+            await self._process_with_tools(ws, agent, depth=0)
+        except Exception as e:
+            console.print(f"[red]Error: {e}[/red]")
+            try:
+                await ws.send(json.dumps({"type": "error", "message": str(e)}))
+                await ws.send(json.dumps({"type": "done"}))
+            except Exception:
+                pass
+
+    async def _process_with_tools(self, ws, agent: Agent, depth: int = 0):
+        """Call Ollama with native tool calling and stream results to UI."""
+        if depth > 5:
+            await ws.send(json.dumps({"type": "done"}))
+            return
+
         from aulinx.agent import SYSTEM_PROMPT
-        system = SYSTEM_PROMPT.format(
-            context=ctx,
-            tools=agent.tools.describe(compact=True),
-        )
+        ctx = await agent.context.snapshot()
+        system_msg = SYSTEM_PROMPT + f"\n\nCurrent desktop state:\n{ctx}"
 
         messages = [
-            {"role": "system", "content": system},
+            {"role": "system", "content": system_msg},
             *agent.history[-agent.max_history:],
         ]
 
-        # Stream from Ollama
-        import httpx
-        response_text = ""
+        tools = agent.tools.to_ollama_tools()
 
+        # Call Ollama (non-streaming for tool calling)
         try:
             async with httpx.AsyncClient() as client:
-                async with client.stream(
-                    "POST",
+                resp = await client.post(
                     f"{agent.base_url}/api/chat",
                     json={
                         "model": agent.model,
                         "messages": messages,
-                        "stream": True,
+                        "tools": tools,
+                        "stream": False,
                         "options": {"temperature": agent.temperature},
                     },
-                    timeout=httpx.Timeout(connect=10, read=90, write=10, pool=10),
-                ) as resp:
-                    resp.raise_for_status()
-                    async for line in resp.aiter_lines():
-                        if not line:
-                            continue
-                        try:
-                            chunk = json.loads(line)
-                            token = chunk.get("message", {}).get("content", "")
-                            if token:
-                                response_text += token
-                                # Stream tokens to UI (skip JSON blocks)
-                                if "```json" not in response_text:
-                                    await ws.send(json.dumps({"type": "token", "content": token}))
-                        except json.JSONDecodeError:
-                            continue
+                    timeout=httpx.Timeout(connect=10, read=120, write=10, pool=10),
+                )
+                resp.raise_for_status()
+                result = resp.json()
         except Exception as e:
             await ws.send(json.dumps({"type": "error", "message": str(e)}))
+            await ws.send(json.dumps({"type": "done"}))
             return
 
-        agent.history.append({"role": "assistant", "content": response_text})
+        response_msg = result.get("message", {})
+        content = response_msg.get("content", "")
+        tool_calls = response_msg.get("tool_calls")
+
+        # Send text content to UI
+        if content:
+            cleaned = _strip_json_blocks(content)
+            if cleaned:
+                await ws.send(json.dumps({"type": "token", "content": cleaned}))
+
+        # Save to history
+        history_entry = {"role": "assistant", "content": content or ""}
+        if tool_calls:
+            history_entry["tool_calls"] = tool_calls
+        agent.history.append(history_entry)
         agent.history_mgr.save(agent.history)
 
-        # Check for tool call
-        tool_call = _extract_tool_call(response_text)
-        if tool_call:
-            tool_name, args = tool_call
+        # Execute tool calls
+        if tool_calls:
+            for tc in tool_calls:
+                fn = tc.get("function", {})
+                tool_name = fn.get("name", "")
+                args = fn.get("arguments", {})
 
-            if tool_name not in agent.tools:
-                await ws.send(json.dumps({"type": "error", "message": f"Unknown tool: {tool_name}"}))
-                return
+                if not tool_name or tool_name not in agent.tools:
+                    continue
 
-            # Notify UI about tool call
-            await ws.send(json.dumps({"type": "tool_call", "tool": tool_name, "args": args}))
+                # Notify UI
+                await ws.send(json.dumps({"type": "tool_call", "tool": tool_name, "args": args}))
 
-            # Execute
-            import time
-            t0 = time.monotonic()
-            result = await agent.tools.execute(tool_name, args)
-            duration_ms = int((time.monotonic() - t0) * 1000)
-            result_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
+                # Execute
+                t0 = time.monotonic()
+                tool_result = await agent.tools.execute(tool_name, args)
+                duration_ms = int((time.monotonic() - t0) * 1000)
+                result_str = json.dumps(tool_result, indent=2, ensure_ascii=False, default=str)
 
-            agent.audit.log(tool_name, args, result_str, duration_ms)
+                agent.audit.log(tool_name, args, result_str, duration_ms)
 
-            # Send result to UI
-            await ws.send(json.dumps({
-                "type": "tool_result",
-                "tool": tool_name,
-                "result": result,
-                "duration_ms": duration_ms,
-            }))
+                if len(result_str) > 3000:
+                    result_str = result_str[:3000] + "\n... (truncated)"
 
-            # Truncate for LLM history
-            if len(result_str) > 3000:
-                result_str = result_str[:3000] + "\n... (truncated)"
+                # Send result to UI
+                await ws.send(json.dumps({
+                    "type": "tool_result",
+                    "tool": tool_name,
+                    "result": tool_result,
+                    "duration_ms": duration_ms,
+                }))
 
-            agent.history.append({
-                "role": "system",
-                "content": f"Tool '{tool_name}' returned:\n{result_str}",
-            })
+                # Add to history for LLM
+                agent.history.append({
+                    "role": "tool",
+                    "content": result_str,
+                })
 
-            # Let LLM continue
-            await self._process_message(ws, agent, depth + 1)
+            # Let LLM process results
+            await self._process_with_tools(ws, agent, depth + 1)
         else:
             await ws.send(json.dumps({"type": "done"}))
 
