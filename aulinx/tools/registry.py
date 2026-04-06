@@ -98,9 +98,44 @@ class ToolRegistry:
                 lines.append(f"- {tool.name} [{tier_label}]: {tool.description}{params}")
         return "\n".join(lines)
 
-    def to_ollama_tools(self) -> list[dict]:
-        """Return all tools as Ollama/OpenAI function calling schemas."""
-        return [tool.to_ollama_schema() for tool in sorted(self._tools.values(), key=lambda t: t.name)]
+    # Core tools that are always included in native tool calling
+    CORE_TOOLS = {
+        "window_list", "window_get_focused",
+        "atspi_get_tree", "atspi_find_elements", "atspi_do_action", "atspi_read_text", "atspi_set_text",
+        "window_screenshot",
+        "file_read", "file_write", "file_edit", "file_list", "file_search", "file_trash",
+        "app_launch", "app_list_running",
+        "process_list", "process_kill",
+        "system_info", "shell_exec",
+        "who_am_i", "uptime", "disk_usage",
+        "date_now", "calendar_show",
+        "git_status", "git_log", "git_diff",
+        "text_grep", "text_count",
+        "clipboard_get", "clipboard_set",
+        "notification_send",
+        "audio_get_volume", "audio_set_volume",
+        "network_status", "wifi_list",
+        "power_status",
+        "theme_get", "theme_set_dark",
+        "bluetooth_status",
+        "display_list", "display_brightness",
+        "memory_store", "memory_get",
+        "input_type_text", "input_key_combo",
+        "xdg_open",
+        "set_timer",
+        "context_get",
+    }
+
+    def to_ollama_tools(self, core_only: bool = True) -> list[dict]:
+        """Return tools as Ollama/OpenAI function calling schemas.
+
+        core_only=True (default): return ~50 most-used tools to fit in context window.
+        core_only=False: return all 92 tools (may overflow small context windows).
+        """
+        tools = self._tools.values()
+        if core_only:
+            tools = [t for t in tools if t.name in self.CORE_TOOLS]
+        return [tool.to_ollama_schema() for tool in sorted(tools, key=lambda t: t.name)]
 
     async def execute(self, name: str, args: dict[str, Any]) -> Any:
         """Execute a tool by name."""
