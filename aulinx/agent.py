@@ -108,6 +108,12 @@ class Agent:
         content = response_msg.get("content", "")
         tool_calls = response_msg.get("tool_calls")
 
+        # Debug: show if native tool calling was used
+        if tool_calls:
+            console.print("[dim]  (native tool calling)[/dim]")
+        elif content and ("```json" in content or '"tool"' in content):
+            console.print("[dim]  (text fallback — model generated JSON as text)[/dim]")
+
         # Print text content (if any)
         if content:
             # Strip any leftover JSON tool blocks from content
