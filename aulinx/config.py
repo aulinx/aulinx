@@ -39,6 +39,8 @@ class LLMConfig:
     model: str = "qwen2.5:14b"
     base_url: str = "http://localhost:11434"
     temperature: float = 0.3
+    router_model: str = ""  # small fast model for intent routing (e.g. qwen2.5:3b)
+    use_router: bool = False  # enable multi-model routing
 
 
 @dataclass

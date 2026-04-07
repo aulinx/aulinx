@@ -58,6 +58,11 @@ def parse_args() -> argparse.Namespace:
         help="WebSocket server port (default: 8765)",
     )
     parser.add_argument(
+        "--daemon",
+        action="store_true",
+        help="Run as background daemon with global hotkey (Super+Space) and ambient context",
+    )
+    parser.add_argument(
         "--doctor",
         action="store_true",
         help="Run diagnostic check on system dependencies",
@@ -197,6 +202,11 @@ def main():
         from aulinx.doctor import run_doctor
         config = load_config()
         asyncio.run(run_doctor(args.base_url or config.llm.base_url))
+        return
+
+    if args.daemon:
+        from aulinx.daemon import run_daemon
+        asyncio.run(run_daemon(port=args.port))
         return
 
     if args.serve:

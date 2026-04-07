@@ -21,10 +21,17 @@ class LLMEvent:
 class OllamaClient:
     """Handles all communication with Ollama, including streaming and tool calling."""
 
-    def __init__(self, model: str, base_url: str, temperature: float = 0.3):
+    def __init__(
+        self,
+        model: str,
+        base_url: str,
+        temperature: float = 0.3,
+        router_model: str = "",
+    ):
         self.model = model
         self.base_url = base_url
         self.temperature = temperature
+        self.router_model = router_model  # small model for intent classification
         self._available = False
 
     async def check(self) -> bool:
@@ -47,6 +54,44 @@ class OllamaClient:
     def available_models(self) -> list[str]:
         """Synchronously unavailable — use check() first."""
         return []
+
+    async def route_intent(self, user_message: str, tool_names: list[str]) -> str | None:
+        """Use a small fast model to classify which tool to call.
+
+        Returns the tool name, or None if routing fails/is disabled.
+        """
+        if not self.router_model:
+            return None
+
+        prompt = (
+            f"Pick the single best tool for this user request. Reply with ONLY the tool name, nothing else.\n\n"
+            f"Tools: {', '.join(tool_names)}\n\n"
+            f"User: {user_message}\n\n"
+            f"Tool:"
+        )
+
+        try:
+            async with httpx.AsyncClient() as client:
+                resp = await client.post(
+                    f"{self.base_url}/api/generate",
+                    json={
+                        "model": self.router_model,
+                        "prompt": prompt,
+                        "stream": False,
+                        "options": {"temperature": 0.0, "num_predict": 20},
+                    },
+                    timeout=httpx.Timeout(connect=5, read=15, write=5, pool=5),
+                )
+                resp.raise_for_status()
+                response = resp.json().get("response", "").strip().split("\n")[0].strip()
+                # Clean up — model might add quotes or extra text
+                response = response.strip("\"' `").split("(")[0].strip()
+                if response in tool_names:
+                    return response
+        except Exception:
+            pass
+
+        return None
 
     async def chat_with_tools(
         self,

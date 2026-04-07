@@ -45,6 +45,7 @@ class ToolRegistry:
             timer,
             window,
             workflow,
+            workflows_tools,
             xdg,
         )
         for module in [
@@ -52,7 +53,7 @@ class ToolRegistry:
             notify, dbus_tools, process, network, audio, display,
             power, theme, memory, bluetooth, workflow, services,
             input_sim, session, packages, xdg, timer, git, text,
-            datetime_tools, ocr,
+            datetime_tools, ocr, workflows_tools,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool

@@ -1,0 +1,25 @@
+[package]
+name = "aulinx-compositor"
+version = "0.1.0"
+edition = "2021"
+description = "AI-native Wayland compositor for Aulinx"
+license = "MIT"
+repository = "https://github.com/aulinx/aulinx"
+
+[dependencies]
+# Wayland compositor framework
+smithay = { version = "0.3", features = ["desktop", "wayland_frontend", "backend_drm", "backend_udev", "backend_winit", "renderer_glow"] }
+# Event loop
+calloop = "0.14"
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+# IPC
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# Unix socket for AI IPC
+tokio = { version = "1", features = ["full"] }
+
+[profile.release]
+opt-level = 2
+lto = "thin"
