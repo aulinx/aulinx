@@ -160,9 +160,13 @@ TOOLS = [
     ),
     Tool(
         name="file_write",
-        description="Write content to a file (creates parent dirs). Use append=true to append.",
+        description="Write text to a file. Use to create files or write text that can then be opened in an app.",
         fn=file_write,
-        parameters={"path": "string", "content": "string", "append": "bool (default false)"},
+        parameters={
+            "path": "string (e.g. '/home/user/hello.txt', '/tmp/output.md')",
+            "content": "string (REQUIRED — the text content to write. Parameter name is 'content', not 'text')",
+            "append": "bool (optional, default false. Set true to append instead of overwrite)",
+        },
         tier=Tier.MUTATE,
     ),
     Tool(

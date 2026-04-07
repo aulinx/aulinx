@@ -1,6 +1,6 @@
 """Tests for JSON tool call extraction from LLM responses."""
 
-from aulinx.agent import _extract_tool_call
+from aulinx.llm import extract_tool_call as _extract_tool_call
 
 
 class TestExtractToolCall:
