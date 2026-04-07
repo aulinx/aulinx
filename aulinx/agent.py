@@ -16,8 +16,14 @@ console = Console()
 
 SYSTEM_PROMPT = """\
 You are Aulinx, an AI desktop agent on Linux. You control the desktop through tools.
-ALWAYS use a tool when the user asks for information or an action. NEVER guess — call a tool.
-After receiving a tool result, summarize it for the user.
+ALWAYS respond in English. ALWAYS use a tool when the user asks for information or an action.
+NEVER guess or make up data — call a tool first. After receiving a tool result, summarize it briefly.
+
+Multi-step patterns:
+- "write X to file and open it" → call file_write FIRST, then xdg_open AFTER it succeeds
+- "type X in app" → first check the app is running (app_list_running), then use atspi_set_text or input_type_text
+- "find and click button" → first atspi_find_elements, then atspi_do_action
+- If a tool fails, try an ALTERNATIVE tool — do NOT retry the same tool with the same args
 """
 
 MAX_TOOL_DEPTH = 5
@@ -57,7 +63,7 @@ class Agent:
         console.print(f"[dim]  Desktop: {self.context.status()}[/dim]")
         console.print(f"[dim]  Tools: {len(self.tools)} registered[/dim]\n")
 
-    async def handle(self, user_input: str, _depth: int = 0):
+    async def handle(self, user_input: str, _depth: int = 0, _last_tool_call: str = ""):
         """Process a user message with streaming tool calling."""
         if _depth == 0:
             if not user_input:
@@ -130,6 +136,16 @@ class Agent:
                 tool_name = fn.get("name", "")
                 args = fn.get("arguments", {})
 
+                # Prevent infinite retry of same failing tool
+                call_sig = f"{tool_name}:{json.dumps(args, sort_keys=True)}"
+                if call_sig == _last_tool_call:
+                    console.print("[yellow]Same tool call repeated — stopping to avoid loop.[/yellow]")
+                    self.history.append({
+                        "role": "tool",
+                        "content": json.dumps({"error": "Repeated call detected. Try a different approach."}),
+                    })
+                    continue
+
                 if not tool_name or tool_name not in self.tools:
                     if tool_name:
                         console.print(f"[red]Unknown tool: {tool_name}[/red]")
@@ -190,8 +206,8 @@ class Agent:
 
                 self.history.append({"role": "tool", "content": result_str})
 
-            # Let LLM process tool results
-            await self.handle("", _depth=_depth + 1)
+            # Let LLM process tool results (pass last call sig for duplicate detection)
+            await self.handle("", _depth=_depth + 1, _last_tool_call=call_sig)
 
 
 def _format_args(args: dict) -> str:
