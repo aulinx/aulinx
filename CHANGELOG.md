@@ -4,6 +4,43 @@ All notable changes to Aulinx will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] - 2026-04-08
+
+### Added
+- **OllamaClient refactor** — shared streaming LLM client in `llm.py`, eliminates code duplication
+- **Streaming native tool calling** — tokens stream immediately, tool calls from final chunk
+- **Multi-model routing** — small router model classifies intent, large model executes
+- **Global hotkey daemon** (`aulinx --daemon`) — Super+Space opens palette, GNOME + evdev backends
+- **Workflow automation** — create/run/trigger workflows (manual, app-based, time-based), 5 new tools
+- **AI suggestion engine** — desktop notifications for uncommitted git, high CPU, low disk, low battery
+- **Plugin system** — drop Python files in `~/.config/aulinx/plugins/` for custom tools
+- **Long-term memory** — keyword-based RAG across sessions, auto-context in prompts, 5 new tools
+- **MCP server** (`aulinx --mcp`) — expose all tools to Claude Desktop or any MCP client
+- **Voice interface** (`aulinx --voice`) — speech-to-text via faster-whisper (local)
+- **Web dashboard** — 5-tab React dashboard (stats, tools, audit, memory, settings)
+- **REST API** — 7 endpoints over WebSocket for dashboard
+- **atspi_focus_element** tool — focus any UI element, then type into it
+- **ydotool support** — works on GNOME Mutter, auto-detects socket
+- **Systemd service** — one-command install, auto-starts on login
+- **Structured logging** — file + console with levels
+- **Config validation** — range checks, format validation, warnings
+- **Anti-loop detection** — prevents infinite retry of same failing tool
+- **English-only responses** — stops multilingual model from responding in Thai/Chinese
+- **Compositor scaffold** — Rust/Smithay project with IPC protocol spec
+
+### Changed
+- Agent now uses `OllamaClient` for all LLM communication (no more duplicated code)
+- Tool parameter descriptions improved with concrete examples
+- `input_sim.py` priority: ydotool > wtype > xdotool (ydotool works on GNOME)
+- Registry strips unknown kwargs from tool calls (handles LLM hallucinated parameters)
+- System prompt includes multi-step reasoning patterns
+
+### Stats
+- 103 tools across 26 modules
+- 107 tests (36 new)
+- 8,000+ lines of Python
+- 6 run modes: CLI, WebSocket, daemon, MCP, voice, doctor
+
 ## [0.1.0] - 2026-04-06
 
 ### Added

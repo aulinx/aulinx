@@ -28,7 +28,7 @@ class LongMemory:
             "category": category,
             "source": source,
             "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
-            "keywords": _extract_keywords(content),
+            "keywords": list(_extract_keywords(content)),
         }
         with open(LONG_MEMORY_FILE, "a") as f:
             f.write(json.dumps(entry, ensure_ascii=False) + "\n")

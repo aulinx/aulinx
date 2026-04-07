@@ -23,7 +23,7 @@
 
 ## What is Aulinx?
 
-Aulinx is an AI agent that controls your entire Linux desktop through natural language. It sees every app via AT-SPI, reads UI elements, clicks buttons, types text, manages files, and controls system settings — with 92 tools and a local LLM.
+Aulinx is an AI agent that controls your entire Linux desktop through natural language. It sees every app via AT-SPI, reads UI elements, clicks buttons, types text, manages files, and controls system settings — with 103 tools and a local LLM.
 
 ```
 aulinx > why is my computer slow right now?
@@ -57,7 +57,7 @@ Unlike other AI desktop agents that use screenshots, Aulinx reads the actual UI 
 ├──────────────────────────────────────────────────┤
 │  Agent (Ollama native tool calling + audit)        │
 ├──────────────────────────────────────────────────┤
-│  92 Tools across 23 modules                       │
+│  92 Tools across 26 modules                       │
 │  AT-SPI, files, git, process, network, audio...   │
 ├──────────────────────────────────────────────────┤
 │  Linux desktop (GNOME, KDE, Sway, Xfce)           │
@@ -111,6 +111,15 @@ cd ui && npm install && npm run dev
 # Resume last conversation
 aulinx --resume
 
+# Background daemon with global hotkey (Super+Space)
+aulinx --daemon
+
+# Voice input mode (requires faster-whisper)
+aulinx --voice
+
+# MCP server for Claude Desktop
+aulinx --mcp
+
 # Check system dependencies
 aulinx --doctor
 ```
@@ -152,7 +161,7 @@ temperature = 0.3
 
 ## Tools
 
-92 tools across 23 modules:
+103 tools across 26 modules:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -183,6 +192,8 @@ temperature = 0.3
 | **DateTime** | now, convert, calendar_show | 3 |
 | **System** | info, shell_exec | 2 |
 | **Workflow** | context_get, wait, audit_recent | 3 |
+| **Workflows** | create, list, run, delete, toggle | 5 |
+| **Long Memory** | remember, recall, recall_recent, forget, memory_count | 5 |
 
 ### Permission Tiers
 
@@ -197,9 +208,12 @@ temperature = 0.3
 ## Roadmap
 
 - [x] Research & architecture design
-- [x] **Phase 0**: 92 tools + CLI + tests + CI + audit + memory
+- [x] **Phase 0**: 103 tools + CLI + tests + CI + audit + memory
 - [x] **Phase 1**: Web command palette UI + WebSocket server
-- [x] **Tested**: AT-SPI GUI control on real Linux (Docker + VNC)
+- [x] **Tested**: AT-SPI GUI control on real Linux (Docker + VMware + VNC)
+- [x] Daemon mode, voice interface, MCP server, plugin system
+- [x] Workflow automation, long-term memory, web dashboard
+- [x] 107 tests, systemd service, ydotool GNOME support
 - [ ] **Phase 2**: Custom Wayland compositor with AI IPC
 - [ ] **Phase 3**: Full AI desktop environment (daily-drivable)
 - [ ] **Phase 4**: Distributable Linux distro image
