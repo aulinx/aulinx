@@ -15,6 +15,7 @@ class ToolRegistry:
         self._tools: dict[str, Tool] = {}
         self._confirmed_tools: set[str] = set()
         self._register_builtins()
+        self._register_plugins()
 
     def _register_builtins(self):
         """Register all built-in tool modules."""
@@ -30,6 +31,7 @@ class ToolRegistry:
             files,
             git,
             input_sim,
+            long_memory_tools,
             memory,
             network,
             notify,
@@ -52,11 +54,20 @@ class ToolRegistry:
             window, atspi_tools, files, apps, system, clipboard,
             notify, dbus_tools, process, network, audio, display,
             power, theme, memory, bluetooth, workflow, services,
-            input_sim, session, packages, xdg, timer, git, text,
+            input_sim, long_memory_tools, session, packages, xdg, timer, git, text,
             datetime_tools, ocr, workflows_tools,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
+
+    def _register_plugins(self):
+        """Load user plugins from ~/.config/aulinx/plugins/."""
+        try:
+            from aulinx.plugins import discover_plugins
+            for tool in discover_plugins():
+                self._tools[tool.name] = tool
+        except Exception:
+            pass
 
     def __contains__(self, name: str) -> bool:
         return name in self._tools

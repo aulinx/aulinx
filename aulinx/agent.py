@@ -76,9 +76,18 @@ class Agent:
                 console.print("[red]Ollama is not available.[/red]")
                 return
 
-        # Build messages
+        # Build messages with desktop context + long-term memory
         ctx = await self.context.snapshot()
+        user_query = self.history[-1].get("content", "") if self.history else ""
+        memory_ctx = ""
+        try:
+            from aulinx.long_memory import LongMemory
+            memory_ctx = LongMemory().summarize_for_context(user_query)
+        except Exception:
+            pass
         system_msg = SYSTEM_PROMPT + f"\n\nDesktop state:\n{ctx}"
+        if memory_ctx:
+            system_msg += f"\n\n{memory_ctx}"
 
         messages = [
             {"role": "system", "content": system_msg},

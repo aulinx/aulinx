@@ -71,6 +71,17 @@ class WebSocketServer:
             await ws.send(json.dumps({"type": "error", "message": "Invalid JSON"}))
             return
 
+        # Handle API requests from the dashboard
+        if data.get("type") == "api":
+            from aulinx.api import handle_api_request
+            result = await handle_api_request(
+                data.get("path", ""),
+                data.get("method", "GET"),
+                data.get("body"),
+            )
+            await ws.send(json.dumps({"type": "api_response", "path": data.get("path"), "data": result}))
+            return
+
         if data.get("type") != "message":
             return
 
