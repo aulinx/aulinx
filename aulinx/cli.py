@@ -68,6 +68,11 @@ def parse_args() -> argparse.Namespace:
         help="Run as MCP server (stdio transport) for Claude Desktop or other AI clients",
     )
     parser.add_argument(
+        "--voice",
+        action="store_true",
+        help="Enable voice input (requires faster-whisper, sounddevice, numpy)",
+    )
+    parser.add_argument(
         "--doctor",
         action="store_true",
         help="Run diagnostic check on system dependencies",
@@ -90,10 +95,17 @@ def _build_agent(args: argparse.Namespace) -> Agent:
     )
 
 
-async def run_interactive(agent: Agent, resume: bool = False):
+async def run_interactive(agent: Agent, resume: bool = False, voice: bool = False):
     """Run the interactive REPL."""
     print_banner()
     await agent.initialize()
+
+    # Initialize voice if requested
+    voice_input = None
+    if voice:
+        from aulinx.voice import VoiceInput
+        voice_input = VoiceInput()
+        await voice_input.initialize()
 
     if resume:
         prev = agent.history_mgr.load_latest()
@@ -115,7 +127,7 @@ async def run_interactive(agent: Agent, resume: bool = False):
 
             # Built-in commands
             if text.startswith("/"):
-                await _handle_slash_command(text, agent)
+                await _handle_slash_command(text, agent, voice_input)
                 continue
 
             await agent.handle(text)
@@ -135,7 +147,7 @@ async def run_command(agent: Agent, command: str):
     print()
 
 
-async def _handle_slash_command(text: str, agent: Agent):
+async def _handle_slash_command(text: str, agent: Agent, voice_input=None):
     """Handle built-in slash commands."""
     cmd = text.lower().split()[0]
 
@@ -185,6 +197,16 @@ async def _handle_slash_command(text: str, agent: Agent):
         from aulinx.doctor import run_doctor
         await run_doctor(agent.base_url)
 
+    elif cmd == "/voice":
+        if voice_input and voice_input.available:
+            text = await voice_input.listen(duration=5.0)
+            if text:
+                await agent.handle(text)
+                print()
+        else:
+            console.print("[yellow]Voice not available. Start with: aulinx --voice[/yellow]\n")
+            console.print("[dim]Install: pip install faster-whisper sounddevice numpy[/dim]\n")
+
     elif cmd == "/help":
         console.print("""
 [bold]Commands:[/bold]
@@ -193,6 +215,7 @@ async def _handle_slash_command(text: str, agent: Agent):
   /history  — Show past conversation sessions
   /audit    — Show recent tool calls
   /doctor   — Check system dependencies
+  /voice    — Speak a command (requires --voice flag)
   /clear    — Clear conversation history
   /help     — Show this help
 """)
@@ -233,7 +256,7 @@ def main():
     if args.command:
         asyncio.run(run_command(agent, args.command))
     else:
-        asyncio.run(run_interactive(agent, resume=args.resume))
+        asyncio.run(run_interactive(agent, resume=args.resume, voice=args.voice))
 
 
 if __name__ == "__main__":

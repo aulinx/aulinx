@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Markdown from "react-markdown";
+import Dashboard from "./Dashboard";
 
 type Message = {
   id: number;
@@ -35,6 +36,7 @@ function App() {
   const [thinking, setThinking] = useState(false);
   const [thinkingLabel, setThinkingLabel] = useState("Thinking...");
   const [copied, setCopied] = useState<number | null>(null);
+  const [showDashboard, setShowDashboard] = useState(false);
   const wsRef = useRef<WebSocket | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
@@ -212,6 +214,10 @@ function App() {
     });
   }, []);
 
+  if (showDashboard) {
+    return <Dashboard onClose={() => setShowDashboard(false)} />;
+  }
+
   return (
     <div className="palette">
       <div className="palette-messages" ref={messagesRef} onScroll={handleScroll}>
@@ -352,7 +358,8 @@ function App() {
           {connected ? "Connected" : "Reconnecting..."}
         </span>
         <span className="status-shortcuts">Esc · Ctrl+K · Up/Down</span>
-        <span>92 tools</span>
+        <button className="dash-toggle" onClick={() => setShowDashboard(true)}>Dashboard</button>
+        <span>103 tools</span>
       </div>
     </div>
   );

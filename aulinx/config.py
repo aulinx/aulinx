@@ -100,7 +100,36 @@ def load_config() -> Config:
     except Exception:
         pass
 
+    # Validate
+    _validate_config(config)
+
     return config
+
+
+def _validate_config(config: Config):
+    """Validate config values and warn about issues."""
+    warnings = []
+
+    if config.llm.temperature < 0 or config.llm.temperature > 2:
+        config.llm.temperature = max(0, min(2, config.llm.temperature))
+        warnings.append(f"Temperature clamped to {config.llm.temperature} (valid: 0-2)")
+
+    if config.context.max_history < 1:
+        config.context.max_history = 20
+        warnings.append("max_history must be >= 1, reset to 20")
+
+    if not config.llm.base_url.startswith(("http://", "https://")):
+        warnings.append(f"base_url '{config.llm.base_url}' should start with http:// or https://")
+
+    valid_tiers = {"observe", "low_risk", "mutate", "destructive", "irreversible"}
+    for tool, tier in config.permission_overrides.items():
+        if tier not in valid_tiers:
+            warnings.append(f"Invalid permission tier '{tier}' for '{tool}'. Valid: {valid_tiers}")
+
+    if warnings:
+        import sys
+        for w in warnings:
+            print(f"[config] Warning: {w}", file=sys.stderr)
 
 
 def _create_default_config():
