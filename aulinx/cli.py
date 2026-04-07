@@ -63,6 +63,11 @@ def parse_args() -> argparse.Namespace:
         help="Run as background daemon with global hotkey (Super+Space) and ambient context",
     )
     parser.add_argument(
+        "--mcp",
+        action="store_true",
+        help="Run as MCP server (stdio transport) for Claude Desktop or other AI clients",
+    )
+    parser.add_argument(
         "--doctor",
         action="store_true",
         help="Run diagnostic check on system dependencies",
@@ -202,6 +207,11 @@ def main():
         from aulinx.doctor import run_doctor
         config = load_config()
         asyncio.run(run_doctor(args.base_url or config.llm.base_url))
+        return
+
+    if args.mcp:
+        from aulinx.mcp_server import run_mcp_server
+        asyncio.run(run_mcp_server())
         return
 
     if args.daemon:

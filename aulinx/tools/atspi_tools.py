@@ -324,6 +324,60 @@ def _find_and_set_text(node, name_filter: str, text: str, depth: int, max_depth:
     return None
 
 
+async def atspi_focus_element(app_name: str, element_name: str = "", role: str = "") -> str:
+    """Focus a specific UI element. Use before input_type_text to type into a specific field."""
+    try:
+        import pyatspi
+
+        desktop = pyatspi.Registry.getDesktop(0)
+
+        for app in desktop:
+            try:
+                if app_name.lower() not in (app.name or "").lower():
+                    continue
+                result = _find_and_focus(app, element_name.lower() if element_name else "", role.lower() if role else "", 0, 6)
+                if result:
+                    return result
+            except Exception:
+                continue
+
+        return f"Element not found in '{app_name}'"
+
+    except ImportError:
+        return "pyatspi not available"
+
+
+def _find_and_focus(node, name_filter: str, role_filter: str, depth: int, max_depth: int) -> str | None:
+    """Find an element and give it keyboard focus."""
+    if depth > max_depth or node is None:
+        return None
+
+    try:
+        matches = True
+        if name_filter and name_filter not in (node.name or "").lower():
+            matches = False
+        if role_filter and role_filter not in node.getRoleName().lower():
+            matches = False
+
+        if matches and (name_filter or role_filter):
+            try:
+                comp = node.queryComponent()
+                comp.grabFocus()
+                return f"Focused '{node.name}' ({node.getRoleName()}) in {node.getApplication().name}"
+            except (NotImplementedError, AttributeError):
+                pass
+
+        for child in node:
+            if child is not None:
+                result = _find_and_focus(child, name_filter, role_filter, depth + 1, max_depth)
+                if result:
+                    return result
+    except Exception:
+        pass
+
+    return None
+
+
 async def window_screenshot(method: str = "grim") -> dict:
     """Take a screenshot of the screen or focused window. Returns the file path."""
     import subprocess
@@ -414,6 +468,17 @@ TOOLS = [
             "app_name": "string (e.g. 'gedit', 'Firefox')",
             "element_name": "string (e.g. 'Search', 'URL', or empty string for first editable field)",
             "text": "string (the text to type)",
+        },
+        tier=Tier.MUTATE,
+    ),
+    Tool(
+        name="atspi_focus_element",
+        description="Focus a UI element (give it keyboard focus). Use BEFORE input_type_text to type into a specific field.",
+        fn=atspi_focus_element,
+        parameters={
+            "app_name": "string (e.g. 'gedit', 'Firefox')",
+            "element_name": "string (optional: e.g. 'Search', 'URL'. Omit to match by role only)",
+            "role": "string (optional: e.g. 'text', 'entry', 'terminal'. Omit to match by name only)",
         },
         tier=Tier.MUTATE,
     ),

@@ -1,0 +1,17 @@
+[Unit]
+Description=Aulinx AI Desktop Agent
+Documentation=https://github.com/aulinx/aulinx
+After=graphical-session.target
+PartOf=graphical-session.target
+
+[Service]
+Type=simple
+ExecStartPre=/bin/sh -c 'pgrep -x ydotoold || ydotoold &'
+ExecStart=%h/.local/bin/aulinx --daemon
+Restart=on-failure
+RestartSec=5
+Environment=YDOTOOL_SOCKET=/tmp/.ydotool_socket
+Environment=PATH=%h/.local/bin:/usr/local/bin:/usr/bin:/bin
+
+[Install]
+WantedBy=graphical-session.target

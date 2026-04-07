@@ -43,6 +43,9 @@ class AulinxDaemon:
         # Start the ambient context engine
         self._context_task = asyncio.create_task(self._run_context_engine())
 
+        # Start suggestion engine
+        suggestion_task = asyncio.create_task(self._run_suggestions())
+
         console.print("[bold green]Daemon ready.[/bold green] Press hotkey to invoke palette.")
 
         # Handle signals
@@ -53,7 +56,7 @@ class AulinxDaemon:
             except NotImplementedError:
                 pass  # Windows
 
-        await asyncio.gather(server_task, hotkey_task, self._context_task, return_exceptions=True)
+        await asyncio.gather(server_task, hotkey_task, self._context_task, suggestion_task, return_exceptions=True)
 
     async def stop(self):
         """Stop the daemon."""
@@ -138,6 +141,12 @@ class AulinxDaemon:
             )
         except FileNotFoundError:
             pass
+
+    async def _run_suggestions(self):
+        """Run the AI suggestion engine."""
+        from aulinx.suggestions import SuggestionEngine
+        engine = SuggestionEngine(check_interval=30)
+        await engine.start()
 
     async def _run_context_engine(self):
         """Ambient context engine — monitors desktop state continuously."""
