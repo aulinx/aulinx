@@ -17,6 +17,13 @@ def _find_input_tool() -> str | None:
     """
     # ydotool works on ALL compositors including GNOME Mutter (uses /dev/uinput)
     if shutil.which("ydotool"):
+        # Ensure YDOTOOL_SOCKET is set (daemon may run as root with socket in /tmp)
+        if "YDOTOOL_SOCKET" not in os.environ:
+            for sock_path in ["/tmp/.ydotool_socket", f"/run/user/{os.getuid()}/.ydotool_socket"]:
+                if os.path.exists(sock_path):
+                    os.environ["YDOTOOL_SOCKET"] = sock_path
+                    break
+
         # Check if ydotoold daemon is running
         try:
             result = subprocess.run(
