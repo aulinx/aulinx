@@ -39,6 +39,7 @@ class ToolRegistry:
             packages,
             power,
             process,
+            screen,
             services,
             session,
             system,
@@ -55,7 +56,7 @@ class ToolRegistry:
             notify, dbus_tools, process, network, audio, display,
             power, theme, memory, bluetooth, workflow, services,
             input_sim, long_memory_tools, session, packages, xdg, timer, git, text,
-            datetime_tools, ocr, workflows_tools,
+            datetime_tools, ocr, screen, workflows_tools,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
