@@ -20,6 +20,7 @@ class ToolRegistry:
     def _register_builtins(self):
         """Register all built-in tool modules."""
         from aulinx.tools import (
+            ai_tools,
             apps,
             archive,
             atspi_tools,
@@ -29,6 +30,7 @@ class ToolRegistry:
             clipboard,
             datetime_tools,
             dbus_tools,
+            desktop_utils,
             disks,
             display,
             files,
@@ -43,10 +45,12 @@ class ToolRegistry:
             packages,
             power,
             process,
+            productivity,
             schedule,
             screen,
             services,
             session,
+            sysadmin,
             system,
             text,
             theme,
@@ -63,7 +67,7 @@ class ToolRegistry:
             power, theme, memory, bluetooth, workflow, services,
             input_sim, interact, long_memory_tools, session, packages, xdg, timer,
             git, text, datetime_tools, ocr, screen, web, workflows_tools,
-            archive, calc, disks, schedule,
+            ai_tools, archive, calc, desktop_utils, disks, productivity, schedule, sysadmin,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
