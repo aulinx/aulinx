@@ -21,12 +21,15 @@ class ToolRegistry:
         """Register all built-in tool modules."""
         from aulinx.tools import (
             apps,
+            archive,
             atspi_tools,
             audio,
             bluetooth,
+            calc,
             clipboard,
             datetime_tools,
             dbus_tools,
+            disks,
             display,
             files,
             git,
@@ -40,6 +43,7 @@ class ToolRegistry:
             packages,
             power,
             process,
+            schedule,
             screen,
             services,
             session,
@@ -59,6 +63,7 @@ class ToolRegistry:
             power, theme, memory, bluetooth, workflow, services,
             input_sim, interact, long_memory_tools, session, packages, xdg, timer,
             git, text, datetime_tools, ocr, screen, web, workflows_tools,
+            archive, calc, disks, schedule,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
