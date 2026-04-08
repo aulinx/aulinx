@@ -31,6 +31,7 @@ class ToolRegistry:
             files,
             git,
             input_sim,
+            interact,
             long_memory_tools,
             memory,
             network,
@@ -46,6 +47,7 @@ class ToolRegistry:
             text,
             theme,
             timer,
+            web,
             window,
             workflow,
             workflows_tools,
@@ -55,8 +57,8 @@ class ToolRegistry:
             window, atspi_tools, files, apps, system, clipboard,
             notify, dbus_tools, process, network, audio, display,
             power, theme, memory, bluetooth, workflow, services,
-            input_sim, long_memory_tools, session, packages, xdg, timer, git, text,
-            datetime_tools, ocr, screen, workflows_tools,
+            input_sim, interact, long_memory_tools, session, packages, xdg, timer,
+            git, text, datetime_tools, ocr, screen, web, workflows_tools,
         ]:
             for tool in module.TOOLS:
                 self._tools[tool.name] = tool
