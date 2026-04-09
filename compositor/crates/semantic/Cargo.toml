@@ -16,4 +16,4 @@ serde_json = { workspace = true }
 tracing = { workspace = true }
 
 # AT-SPI D-Bus (optional, Linux only)
-zbus = { version = "5", optional = true, default-features = false, features = ["blocking"] }
+zbus = { version = "5", optional = true, features = ["blocking"] }
