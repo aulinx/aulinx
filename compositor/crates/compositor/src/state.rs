@@ -198,13 +198,16 @@ impl XdgShellHandler for AulinxState {
         let window = Window::new_wayland_window(surface.clone());
         self.space.map_element(window, (0, 0), false);
 
+        let app_id = String::from("wayland-client");
+        let title = String::new();
+
         // Feed semantic bridge
         if let Some(ref mut bridge) = self.semantic_bridge {
-            bridge.window_opened(&mut self.scene_graph, "wayland-client", "");
+            bridge.window_opened(&mut self.scene_graph, &app_id, &title);
         }
 
         self.relayout();
-        tracing::info!("New toplevel mapped");
+        tracing::info!("New toplevel mapped: app={app_id}");
     }
 
     fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {

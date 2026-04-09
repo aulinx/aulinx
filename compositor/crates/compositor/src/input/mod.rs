@@ -1,5 +1,7 @@
 //! Input handling — dispatch keyboard/pointer events to clients.
 
+pub mod injection;
+
 use smithay::backend::input::{
     AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
     KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,

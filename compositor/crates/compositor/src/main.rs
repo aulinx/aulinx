@@ -70,9 +70,33 @@ fn main() {
                 display.flush_clients().ok();
                 state.display = Some(display);
             }
-            // Poll IPC server
+            // Poll IPC server and handle compositor commands
             if let Some(ref mut ipc) = ipc_server {
-                ipc.poll(&state.scene_graph);
+                let commands = ipc.poll(&state.scene_graph);
+                for cmd in commands {
+                    match cmd {
+                        ipc::CompositorCmd::InputType { client_id, req_id, text } => {
+                            let result = state.inject_text(&text);
+                            let resp = match result {
+                                Ok(()) => aulinx_semantic::protocol::JsonRpcResponse::success(req_id, serde_json::json!({"ok": true})),
+                                Err(e) => aulinx_semantic::protocol::JsonRpcResponse::error(req_id, -32603, e),
+                            };
+                            ipc.respond(client_id, &serde_json::to_string(&resp).unwrap());
+                        }
+                        ipc::CompositorCmd::InputKey { client_id, req_id, combo } => {
+                            let result = state.inject_key_combo(&combo);
+                            let resp = match result {
+                                Ok(()) => aulinx_semantic::protocol::JsonRpcResponse::success(req_id, serde_json::json!({"ok": true})),
+                                Err(e) => aulinx_semantic::protocol::JsonRpcResponse::error(req_id, -32603, e),
+                            };
+                            ipc.respond(client_id, &serde_json::to_string(&resp).unwrap());
+                        }
+                        ipc::CompositorCmd::WindowClose { client_id, req_id } => {
+                            let resp = aulinx_semantic::protocol::JsonRpcResponse::error(req_id, -32601, "not yet implemented".into());
+                            ipc.respond(client_id, &serde_json::to_string(&resp).unwrap());
+                        }
+                    }
+                }
             }
         })
         .expect("Event loop failed");
