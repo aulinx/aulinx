@@ -8,8 +8,8 @@ repository.workspace = true
 
 [dependencies]
 aulinx-semantic = { path = "../semantic" }
-# Wayland compositor framework
-smithay = { version = "0.7", features = [
+# Wayland compositor framework (from git — latest release not on crates.io)
+smithay = { git = "https://github.com/Smithay/smithay", features = [
     "desktop",
     "wayland_frontend",
     "backend_drm",
