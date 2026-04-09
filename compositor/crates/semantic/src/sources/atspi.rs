@@ -259,7 +259,7 @@ mod imp {
             };
 
             // Get ChildCount property
-            let count = match conn.call_method(
+            let count: i32 = match conn.call_method(
                 Some(acc.bus_name.as_str()),
                 acc.path.as_str(),
                 Some("org.freedesktop.DBus.Properties"),
@@ -269,16 +269,25 @@ mod imp {
                 Ok(reply) => {
                     let val: OwnedValue = match reply.body().deserialize() {
                         Ok(v) => v,
-                        Err(_) => return Vec::new(),
+                        Err(e) => {
+                            tracing::debug!("ChildCount deserialize failed for {}:{}: {e}", acc.bus_name, acc.path.as_str());
+                            return Vec::new();
+                        }
                     };
-                    // The value is a variant containing an i32
-                    match val.downcast_ref::<i32>() {
-                        Ok(n) => *n,
-                        Err(_) => return Vec::new(),
+                    // Try i32 first, then try other integer types
+                    if let Ok(n) = val.downcast_ref::<i32>() {
+                        n
+                    } else if let Ok(n) = val.downcast_ref::<u32>() {
+                        n as i32
+                    } else {
+                        // Last resort: try to get the string representation and parse
+                        let s = format!("{:?}", val);
+                        tracing::debug!("ChildCount type unknown for {}:{}: {s}", acc.bus_name, acc.path.as_str());
+                        return Vec::new();
                     }
                 }
                 Err(e) => {
-                    tracing::debug!("Failed to get ChildCount for {}: {e}", acc.path.as_str());
+                    tracing::debug!("Failed to get ChildCount for {}:{}: {e}", acc.bus_name, acc.path.as_str());
                     return Vec::new();
                 }
             };
@@ -632,8 +641,14 @@ mod imp {
                         child_name, role, child.path.as_str()
                     );
 
-                    // Only process top-level windows (frames/dialogs)
-                    if role != roles::ROLE_FRAME && role != roles::ROLE_DIALOG {
+                    // Accept top-level containers: frame, dialog, window
+                    // Role numbers vary across AT-SPI implementations
+                    let is_toplevel = matches!(role,
+                        22 | 23 |  // ROLE_FRAME (varies)
+                        16 |       // ROLE_DIALOG
+                        69         // ROLE_WINDOW
+                    );
+                    if !is_toplevel {
                         continue;
                     }
 
