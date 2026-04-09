@@ -574,13 +574,30 @@ mod imp {
 
             // For each application, find top-level windows and build element trees
             for app in &apps {
-                let pid = self.get_pid(app);
                 let app_name = self.get_name(app);
+                let app_role = self.get_role(app).unwrap_or(0);
+                let pid = if app_role == roles::ROLE_APPLICATION {
+                    self.get_pid(app)
+                } else {
+                    0
+                };
+
+                tracing::debug!(
+                    "Processing app '{}' role={} pid={} bus={}",
+                    app_name, app_role, pid, app.bus_name
+                );
 
                 // Get the application's children (top-level frames/windows)
                 let children = self.get_children(app);
+                tracing::debug!("  {} children", children.len());
+
                 for child in &children {
                     let role = self.get_role(child).unwrap_or(0);
+                    let child_name = self.get_name(child);
+                    tracing::debug!(
+                        "  child: '{}' role={} path={}",
+                        child_name, role, child.path.as_str()
+                    );
 
                     // Only process top-level windows (frames/dialogs)
                     if role != roles::ROLE_FRAME && role != roles::ROLE_DIALOG {
