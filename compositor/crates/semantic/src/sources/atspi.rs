@@ -152,6 +152,7 @@ mod imp {
                 return Vec::new();
             };
 
+            // The AT-SPI desktop is at org.a11y.atspi.Registry:/org/a11y/atspi/accessible/root
             let reply = match conn.call_method(
                 Some("org.a11y.atspi.Registry"),
                 "/org/a11y/atspi/accessible/root",
@@ -161,16 +162,27 @@ mod imp {
             ) {
                 Ok(r) => r,
                 Err(e) => {
-                    tracing::debug!("Failed to get AT-SPI applications: {e}");
+                    tracing::warn!("Failed to get AT-SPI applications: {e}");
                     return Vec::new();
                 }
             };
 
-            // Returns array of (bus_name, object_path) tuples
+            // Try to deserialize as array of (bus_name, object_path) tuples
             let children: Vec<(String, OwnedObjectPath)> = match reply.body().deserialize() {
                 Ok(c) => c,
-                Err(_) => return Vec::new(),
+                Err(e) => {
+                    tracing::warn!("Failed to deserialize AT-SPI children: {e}");
+                    // Try alternative: the body might be a different format
+                    // Log the raw body for debugging
+                    tracing::debug!("Raw AT-SPI response body: {:?}", reply.body());
+                    return Vec::new();
+                }
             };
+
+            tracing::info!("AT-SPI: found {} applications", children.len());
+            for (bus_name, path) in &children {
+                tracing::debug!("  app: {} at {}", bus_name, path.as_str());
+            }
 
             children
                 .into_iter()
@@ -553,7 +565,7 @@ mod imp {
 
         fn poll(&mut self, graph: &mut SceneGraph) -> Result<(), Box<dyn std::error::Error>> {
             let apps = self.get_applications();
-            tracing::debug!("AT-SPI: found {} applications", apps.len());
+            tracing::info!("AT-SPI poll: {} applications found", apps.len());
 
             let screen_id = match self.screen_node {
                 Some(id) => id,
