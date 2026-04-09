@@ -1,0 +1,36 @@
+[package]
+name = "aulinx-compositor"
+description = "AI-native Wayland compositor with built-in semantic understanding"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aulinx-semantic = { path = "../semantic" }
+# Wayland compositor framework
+smithay = { version = "0.7", features = [
+    "desktop",
+    "wayland_frontend",
+    "backend_drm",
+    "backend_udev",
+    "backend_winit",
+    "backend_gbm",
+    "backend_egl",
+    "backend_session_libseat",
+    "backend_libinput",
+    "renderer_glow",
+    "renderer_multi",
+    "use_system_lib",
+    "xwayland",
+] }
+calloop = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+id_tree = "1"
+xkbcommon = "0.8"
+image = { version = "0.25", default-features = false, features = ["png"] }
+base64 = "0.22"
+libc = "0.2"

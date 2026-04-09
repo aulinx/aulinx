@@ -7,13 +7,21 @@ from datetime import datetime
 
 
 class DesktopContext:
-    """Collects desktop state for LLM context."""
+    """Collects desktop state for LLM context.
+
+    Prefers the semantic daemon/compositor when available (structured,
+    real-time, cheap). Falls back to AT-SPI for legacy support.
+    """
 
     def __init__(self):
         self._atspi_available = False
+        self._semantic_available = False
 
     async def initialize(self):
         """Check what context sources are available."""
+        # Check semantic daemon/compositor
+        self._semantic_available = _semantic_is_available()
+
         # Check AT-SPI availability
         try:
             import pyatspi  # noqa: F401
@@ -23,7 +31,8 @@ class DesktopContext:
 
     def status(self) -> str:
         parts = []
-        parts.append(f"AT-SPI={'yes' if self._atspi_available else 'no (install pyatspi)'}")
+        parts.append(f"semantic={'yes' if self._semantic_available else 'no'}")
+        parts.append(f"AT-SPI={'yes' if self._atspi_available else 'no'}")
         parts.append(f"platform={_get_platform()}")
         return ", ".join(parts)
 
@@ -34,10 +43,16 @@ class DesktopContext:
         ctx["user"] = os.environ.get("USER", os.environ.get("USERNAME", "unknown"))
         ctx["platform"] = _get_platform()
 
-        # Focused window (AT-SPI)
-        if self._atspi_available:
+        # Prefer semantic daemon for desktop state (100x cheaper than AT-SPI polling)
+        if self._semantic_available:
+            semantic_ctx = _get_semantic_context()
+            if semantic_ctx:
+                ctx["desktop"] = semantic_ctx
+                ctx["context_source"] = "semantic"
+        elif self._atspi_available:
             ctx["focused_window"] = _get_focused_window_atspi()
             ctx["running_apps"] = _get_running_apps_atspi()
+            ctx["context_source"] = "atspi"
 
         # System info
         ctx["system"] = _get_system_info()
@@ -132,3 +147,77 @@ def _get_clipboard() -> str | None:
         except (FileNotFoundError, subprocess.TimeoutExpired, PermissionError, OSError):
             continue
     return None
+
+
+# ---- Semantic daemon integration ----
+
+
+def _semantic_socket_path() -> str:
+    """Get the semantic IPC socket path."""
+    if "AULINX_SOCKET" in os.environ:
+        return os.environ["AULINX_SOCKET"]
+    xdg = os.environ.get("XDG_RUNTIME_DIR", "")
+    if xdg:
+        return os.path.join(xdg, "aulinx", "semantic.sock")
+    return "/tmp/aulinx-semantic.sock"
+
+
+def _semantic_is_available() -> bool:
+    """Check if the semantic daemon or compositor is running."""
+    return os.path.exists(_semantic_socket_path())
+
+
+def _semantic_query(method: str, params: dict = None) -> dict | None:
+    """Send a query to the semantic daemon."""
+    import socket as sock_mod
+    path = _semantic_socket_path()
+    try:
+        s = sock_mod.socket(sock_mod.AF_UNIX, sock_mod.SOCK_STREAM)
+        s.settimeout(2.0)
+        s.connect(path)
+        request = json.dumps({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": method,
+            "params": params or {},
+        }) + "\n"
+        s.sendall(request.encode())
+        data = b""
+        while b"\n" not in data:
+            chunk = s.recv(65536)
+            if not chunk:
+                break
+            data += chunk
+        s.close()
+        response = json.loads(data.decode().strip())
+        return response.get("result")
+    except Exception:
+        return None
+
+
+def _get_semantic_context() -> dict | None:
+    """Get desktop context from the semantic daemon."""
+    try:
+        # Get focused window + all windows in one call
+        focused = _semantic_query("scene.focused")
+        windows = _semantic_query("scene.windows")
+
+        if windows is None:
+            return None
+
+        ctx = {
+            "focused": focused,
+            "windows": [],
+        }
+
+        for w in (windows if isinstance(windows, list) else []):
+            ctx["windows"].append({
+                "id": w.get("id"),
+                "app_id": w.get("app_id"),
+                "title": w.get("title"),
+                "focused": w.get("focused", False),
+            })
+
+        return ctx
+    except Exception:
+        return None

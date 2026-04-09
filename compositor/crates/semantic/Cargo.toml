@@ -1,0 +1,19 @@
+[package]
+name = "aulinx-semantic"
+description = "AI-native semantic desktop understanding — scene graph, queries, and actions"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[features]
+default = []
+atspi = ["dep:zbus"]
+
+[dependencies]
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+
+# AT-SPI D-Bus (optional, Linux only)
+zbus = { version = "5", optional = true, default-features = false, features = ["blocking"] }

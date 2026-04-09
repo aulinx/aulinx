@@ -1,0 +1,15 @@
+[package]
+name = "aulinx-semanticd"
+description = "Standalone semantic desktop daemon — works on any Wayland compositor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[dependencies]
+aulinx-semantic = { path = "../semantic", features = ["atspi"] }
+calloop = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
