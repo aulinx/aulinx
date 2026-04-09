@@ -260,14 +260,6 @@ impl CompositorIpcSource {
     // ---- niri ----
 
     fn fetch_niri_windows(&self) -> Vec<WindowInfo> {
-        let output = match Command::new("niri").args(["msg", "windows"]).output() {
-            Ok(o) => o,
-            Err(e) => {
-                tracing::debug!("niri msg failed: {e}");
-                return Vec::new();
-            }
-        };
-
         // niri's IPC returns JSON when using `niri msg -j windows`
         let output_j = match Command::new("niri")
             .args(["msg", "-j", "windows"])

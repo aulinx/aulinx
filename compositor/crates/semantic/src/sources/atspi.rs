@@ -22,6 +22,7 @@
 #[cfg(feature = "atspi")]
 mod imp {
     use std::collections::HashMap;
+    use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
 
     use zbus::blocking::Connection;
@@ -67,10 +68,10 @@ mod imp {
         pub const ROLE_SEPARATOR: u32 = 48;
         pub const ROLE_SLIDER: u32 = 50;
         pub const ROLE_SPIN_BUTTON: u32 = 52;
-        pub const ROLE_PANEL: u32 = 38;
+        pub const ROLE_PANEL: u32 = 73;
         pub const ROLE_FILLER: u32 = 21;
         pub const ROLE_ALERT: u32 = 1;
-        pub const ROLE_SCROLL_PANE: u32 = 48;
+        pub const ROLE_SCROLL_PANE: u32 = 49;
         pub const ROLE_APPLICATION: u32 = 75;
     }
 
@@ -211,7 +212,7 @@ mod imp {
                         Err(_) => return String::new(),
                     };
                     match val.downcast_ref::<Value>() {
-                        Some(Value::Str(s)) => s.to_string(),
+                        Ok(Value::Str(s)) => s.to_string(),
                         _ => val.to_string(),
                     }
                 }
