@@ -251,29 +251,62 @@ mod imp {
         }
 
         /// Get children of an accessible object.
+        /// Uses ChildCount property + GetChildAtIndex(i) since
+        /// GetChildren is not part of the standard AT-SPI interface.
         fn get_children(&self, acc: &AccessibleRef) -> Vec<AccessibleRef> {
             let Some(conn) = &self.connection else {
                 return Vec::new();
             };
-            let reply = match conn.call_method(
+
+            // Get ChildCount property
+            let count = match conn.call_method(
                 Some(acc.bus_name.as_str()),
                 acc.path.as_str(),
-                Some("org.a11y.atspi.Accessible"),
-                "GetChildren",
-                &(),
+                Some("org.freedesktop.DBus.Properties"),
+                "Get",
+                &("org.a11y.atspi.Accessible", "ChildCount"),
             ) {
-                Ok(r) => r,
-                Err(_) => return Vec::new(),
+                Ok(reply) => {
+                    let val: OwnedValue = match reply.body().deserialize() {
+                        Ok(v) => v,
+                        Err(_) => return Vec::new(),
+                    };
+                    // The value is a variant containing an i32
+                    match val.downcast_ref::<i32>() {
+                        Ok(n) => *n,
+                        Err(_) => return Vec::new(),
+                    }
+                }
+                Err(e) => {
+                    tracing::debug!("Failed to get ChildCount for {}: {e}", acc.path.as_str());
+                    return Vec::new();
+                }
             };
-            let children: Vec<(String, OwnedObjectPath)> =
-                match reply.body().deserialize() {
-                    Ok(c) => c,
-                    Err(_) => return Vec::new(),
-                };
+
+            let mut children = Vec::new();
+            for i in 0..count {
+                match conn.call_method(
+                    Some(acc.bus_name.as_str()),
+                    acc.path.as_str(),
+                    Some("org.a11y.atspi.Accessible"),
+                    "GetChildAtIndex",
+                    &(i,),
+                ) {
+                    Ok(reply) => {
+                        let child: (String, OwnedObjectPath) = match reply.body().deserialize() {
+                            Ok(c) => c,
+                            Err(_) => continue,
+                        };
+                        children.push(AccessibleRef {
+                            bus_name: child.0,
+                            path: child.1,
+                        });
+                    }
+                    Err(_) => continue,
+                }
+            }
+
             children
-                .into_iter()
-                .map(|(bus_name, path)| AccessibleRef { bus_name, path })
-                .collect()
         }
 
         /// Get the state set of an accessible object as a pair of u32 bitfields.
