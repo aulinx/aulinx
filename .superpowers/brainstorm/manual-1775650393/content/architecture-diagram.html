@@ -1,0 +1,268 @@
+<h2>Aulinx Compositor Architecture (Revised)</h2>
+<p class="subtitle">Built with Smithay 0.7 &mdash; verified against COSMIC, niri, and Anvil</p>
+
+<div class="section">
+  <div class="mockup">
+    <div class="mockup-header">System Architecture</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5; padding: 28px; background: #0d1117; color: #c9d1d9;">
+
+      <!-- User Layer -->
+      <div style="text-align: center; margin-bottom: 6px;">
+        <span style="color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">User Layer</span>
+      </div>
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-bottom: 16px;">
+        <div style="background: #1a1f35; border: 1px solid #30363d; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #f0a500; font-weight: bold; font-size: 11px;">Wayland Apps</div>
+          <div style="font-size: 9px; color: #666;">foot, GTK, Qt</div>
+        </div>
+        <div style="background: #1a1f35; border: 1px solid #30363d; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #f0a500; font-weight: bold; font-size: 11px;">X11 Apps</div>
+          <div style="font-size: 9px; color: #666;">Firefox, Electron</div>
+        </div>
+        <div style="background: #1a1f35; border: 1px solid #30363d; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #f0a500; font-weight: bold; font-size: 11px;">AI Palette</div>
+          <div style="font-size: 9px; color: #666;">Layer Shell client</div>
+        </div>
+        <div style="background: #1a1f35; border: 1px solid #30363d; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #f0a500; font-weight: bold; font-size: 11px;">Panels / Bars</div>
+          <div style="font-size: 9px; color: #666;">Layer Shell clients</div>
+        </div>
+      </div>
+
+      <!-- Wayland Protocols -->
+      <div style="text-align: center; margin-bottom: 6px;">
+        <span style="color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Wayland Protocols</span>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 4px;">
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">xdg-shell</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">layer-shell</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">xdg-decor</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">dmabuf</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">viewporter</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">frac-scale</div>
+        </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; margin-bottom: 16px;">
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">session-lock</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">virt-keyboard</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">virt-pointer</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">ptr-constrain</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">idle-notify</div>
+        </div>
+        <div style="background: #161b22; border: 1px solid #21262d; border-radius: 4px; padding: 6px; text-align: center;">
+          <div style="color: #79c0ff; font-size: 10px; font-weight: bold;">data-control</div>
+        </div>
+      </div>
+
+      <!-- Compositor Core -->
+      <div style="text-align: center; margin-bottom: 6px;">
+        <span style="color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Compositor Core (Rust)</span>
+      </div>
+      <div style="border: 2px solid #e94560; border-radius: 12px; padding: 16px; margin-bottom: 16px; background: #0d1117;">
+
+        <!-- Top row: State + Layout + IPC -->
+        <div style="display: grid; grid-template-columns: 2fr 1.5fr 1.5fr; gap: 10px; margin-bottom: 12px;">
+          <div style="background: #1c1032; border: 1px solid #6c3ea0; border-radius: 8px; padding: 12px;">
+            <div style="color: #c084fc; font-weight: bold; font-size: 13px; margin-bottom: 6px;">AulinxState</div>
+            <div style="font-size: 10px; color: #999; line-height: 1.6;">
+              &bull; All Smithay delegates<br>
+              &bull; Space&lt;WindowElement&gt;<br>
+              &bull; Seat + Keyboard + Pointer<br>
+              &bull; Workspaces (Super+1..9)<br>
+              &bull; Window registry (id → meta)<br>
+              &bull; BackendData enum
+            </div>
+          </div>
+          <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 12px;">
+            <div style="color: #4ade80; font-weight: bold; font-size: 13px; margin-bottom: 6px;">Layout Engine</div>
+            <div style="font-size: 10px; color: #999; line-height: 1.6;">
+              &bull; N-ary tree (id_tree)<br>
+              &bull; Group nodes (H/V split)<br>
+              &bull; Mapped nodes (windows)<br>
+              &bull; Floating z-stack<br>
+              &bull; Auto-float dialogs
+            </div>
+          </div>
+          <div style="background: #2d1b1b; border: 1px solid #e94560; border-radius: 8px; padding: 12px;">
+            <div style="color: #e94560; font-weight: bold; font-size: 13px; margin-bottom: 6px;">IPC Server</div>
+            <div style="font-size: 10px; color: #999; line-height: 1.6;">
+              &bull; UnixListener on calloop<br>
+              &bull; Newline JSON-RPC<br>
+              &bull; windows.* (5 cmds)<br>
+              &bull; input.* (3 cmds)<br>
+              &bull; screen.capture
+            </div>
+          </div>
+        </div>
+
+        <!-- Middle row: Shell + Input + Render -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; margin-bottom: 12px;">
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px;">
+            <div style="color: #53d8fb; font-weight: bold; font-size: 12px; margin-bottom: 4px;">Shell</div>
+            <div style="font-size: 10px; color: #888; line-height: 1.6;">
+              xdg.rs &mdash; toplevels/popups<br>
+              layer.rs &mdash; AI palette overlay<br>
+              decoration.rs &mdash; SSD title bars
+            </div>
+          </div>
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px;">
+            <div style="color: #53d8fb; font-weight: bold; font-size: 12px; margin-bottom: 4px;">Input</div>
+            <div style="font-size: 10px; color: #888; line-height: 1.6;">
+              mod.rs &mdash; physical kbd/mouse<br>
+              injection.rs &mdash; AI virtual input<br>
+              Uses zwp_virtual_keyboard_v1
+            </div>
+          </div>
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 12px;">
+            <div style="color: #53d8fb; font-weight: bold; font-size: 12px; margin-bottom: 4px;">Render</div>
+            <div style="font-size: 10px; color: #888; line-height: 1.6;">
+              Glow/OpenGL primary<br>
+              Multi-renderer support<br>
+              Damage tracking
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom row: XWayland -->
+        <div style="display: grid; grid-template-columns: 1fr 2fr; gap: 10px;">
+          <div style="background: #1a1f35; border: 1px solid #f0a500; border-radius: 8px; padding: 10px;">
+            <div style="color: #f0a500; font-weight: bold; font-size: 12px; margin-bottom: 4px;">XWayland</div>
+            <div style="font-size: 10px; color: #888;">X11Wm + XwmHandler &mdash; X11 app compat</div>
+          </div>
+          <div style="background: #1a1f35; border: 1px solid #30363d; border-radius: 8px; padding: 10px;">
+            <div style="color: #8b949e; font-weight: bold; font-size: 12px; margin-bottom: 4px;">Calloop Event Loop (single-threaded)</div>
+            <div style="font-size: 10px; color: #888;">Wayland fd &bull; Backend events &bull; IPC socket &bull; XWayland &bull; Timers</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- AI IPC Connection -->
+      <div style="text-align: center; margin-bottom: 6px;">
+        <div style="display: inline-block; background: #21262d; border-radius: 20px; padding: 4px 16px;">
+          <span style="color: #e94560; font-size: 11px;">&#9660; Unix Socket &mdash; /run/aulinx/ai.sock &mdash; JSON-RPC &#9660;</span>
+        </div>
+      </div>
+
+      <!-- Python Agent -->
+      <div style="display: grid; grid-template-columns: 1fr; margin-top: 8px;">
+        <div style="background: #0f3460; border: 1px solid #1a5276; border-radius: 8px; padding: 14px; text-align: center;">
+          <div style="color: #e94560; font-weight: bold; font-size: 14px; margin-bottom: 4px;">Python Agent (151 tools)</div>
+          <div style="font-size: 11px; color: #aaa;">Ollama LLM &bull; AT-SPI &bull; CLI &bull; WebSocket UI &bull; Voice &bull; MCP Server</div>
+        </div>
+      </div>
+
+      <!-- Backend Layer -->
+      <div style="margin-top: 20px;">
+        <div style="text-align: center; margin-bottom: 6px;">
+          <span style="color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Backend Layer</span>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+          <div style="background: #162032; border: 1px solid #1a5276; border-radius: 8px; padding: 14px; text-align: center;">
+            <div style="color: #f0a500; font-weight: bold; margin-bottom: 4px;">Winit Backend</div>
+            <div style="font-size: 10px; color: #888; line-height: 1.6;">
+              Development mode<br>
+              Nested in GNOME/other WM<br>
+              Immediate visual feedback
+            </div>
+          </div>
+          <div style="background: #162032; border: 1px solid #1a5276; border-radius: 8px; padding: 14px; text-align: center;">
+            <div style="color: #f0a500; font-weight: bold; margin-bottom: 4px;">DRM/KMS + Udev + Libinput</div>
+            <div style="font-size: 10px; color: #888; line-height: 1.6;">
+              Production mode<br>
+              LibSeat session management<br>
+              Multi-monitor, VT switching
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Module Structure</h3>
+  <div class="mockup">
+    <div class="mockup-header">compositor/src/</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 2; padding: 20px; background: #0d1117; color: #c9d1d9;">
+      <div><span style="color: #e94560;">main.rs</span> <span style="color: #484f58;">&mdash; entry point, backend selection, event loop run</span></div>
+      <div><span style="color: #e94560;">state.rs</span> <span style="color: #484f58;">&mdash; AulinxState + Smithay delegate_*! macros</span></div>
+      <div><span style="color: #e94560;">window.rs</span> <span style="color: #484f58;">&mdash; WindowElement enum (Wayland | X11)</span></div>
+      <div><span style="color: #e94560;">workspace.rs</span> <span style="color: #484f58;">&mdash; workspace switching, window assignment</span></div>
+      <div><span style="color: #e94560;">focus.rs</span> <span style="color: #484f58;">&mdash; keyboard + pointer focus tracking</span></div>
+      <div><span style="color: #e94560;">cursor.rs</span> <span style="color: #484f58;">&mdash; xcursor theme loading</span></div>
+      <div><span style="color: #e94560;">xwayland.rs</span> <span style="color: #484f58;">&mdash; XWayland spawn + X11Wm + XwmHandler</span></div>
+      <div><span style="color: #e94560;">config.rs</span> <span style="color: #484f58;">&mdash; runtime config (paths, defaults)</span></div>
+      <div style="margin-top: 6px;"><span style="color: #79c0ff;">backend/</span><span style="color: #484f58;"> mod.rs + winit.rs + udev.rs</span></div>
+      <div><span style="color: #79c0ff;">shell/</span><span style="color: #484f58;"> mod.rs + xdg.rs + layer.rs + decoration.rs</span></div>
+      <div><span style="color: #79c0ff;">layout/</span><span style="color: #484f58;"> mod.rs + tiling.rs (n-ary tree) + floating.rs</span></div>
+      <div><span style="color: #79c0ff;">ipc/</span><span style="color: #484f58;"> mod.rs + protocol.rs + handlers.rs</span></div>
+      <div><span style="color: #79c0ff;">input/</span><span style="color: #484f58;"> mod.rs + injection.rs</span></div>
+      <div><span style="color: #79c0ff;">render/</span><span style="color: #484f58;"> mod.rs + renderer.rs</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Data Flow</h3>
+  <div class="mockup">
+    <div class="mockup-header">How an AI command flows through the system</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.8; padding: 20px; background: #0d1117; color: #c9d1d9;">
+      <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 16px;">
+        <div style="color: #e94560; font-weight: bold;">1.</div>
+        <div>Python agent sends <span style="color: #79c0ff;">{"method":"windows.list"}</span> over Unix socket</div>
+
+        <div style="color: #e94560; font-weight: bold;">2.</div>
+        <div>Calloop wakes on socket readable → IPC server reads + parses JSON-RPC</div>
+
+        <div style="color: #e94560; font-weight: bold;">3.</div>
+        <div>handlers.rs dispatches to <span style="color: #4ade80;">handle_windows_list(&state)</span></div>
+
+        <div style="color: #e94560; font-weight: bold;">4.</div>
+        <div>Handler iterates <span style="color: #c084fc;">state.windows</span> HashMap → builds response array</div>
+
+        <div style="color: #e94560; font-weight: bold;">5.</div>
+        <div>JSON-RPC response written back to client socket</div>
+
+        <div style="color: #e94560; font-weight: bold;">6.</div>
+        <div>Python agent receives <span style="color: #79c0ff;">[{id:1, title:"foot", x:0, y:0, ...}]</span></div>
+      </div>
+
+      <div style="margin-top: 16px; border-top: 1px solid #21262d; padding-top: 16px;">
+        <div style="display: grid; grid-template-columns: auto 1fr; gap: 8px 16px;">
+          <div style="color: #f0a500; font-weight: bold;">1.</div>
+          <div>Python sends <span style="color: #79c0ff;">{"method":"input.type","params":{"text":"hello"}}</span></div>
+
+          <div style="color: #f0a500; font-weight: bold;">2.</div>
+          <div>IPC handler calls <span style="color: #4ade80;">injection::type_text(&mut state, "hello")</span></div>
+
+          <div style="color: #f0a500; font-weight: bold;">3.</div>
+          <div>injection.rs generates virtual key events via <span style="color: #c084fc;">zwp_virtual_keyboard_v1</span></div>
+
+          <div style="color: #f0a500; font-weight: bold;">4.</div>
+          <div>Key events delivered to focused Wayland client → text appears</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

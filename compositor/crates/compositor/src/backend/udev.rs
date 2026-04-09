@@ -34,7 +34,7 @@ use crate::state::AulinxState;
 pub struct DeviceData {
     pub drm: DrmDevice,
     pub drm_node: DrmNode,
-    pub outputs: HashMap<smithay::backend::drm::connector::Handle, Output>,
+    pub outputs: HashMap<u32, Output>,  // connector id -> output
 }
 
 /// Udev backend data stored in AulinxState.
@@ -54,7 +54,7 @@ pub fn init(loop_handle: &LoopHandle<'static, AulinxState>) -> UdevData {
     let (session, session_notifier) = LibSeatSession::new()
         .expect("Failed to create libseat session. Are you in the 'seat' group?");
 
-    tracing::info!("Session opened on seat: {}", session.seat());
+    tracing::info!("Session opened");
 
     // Insert session event source (handles VT switching)
     loop_handle
@@ -73,14 +73,18 @@ pub fn init(loop_handle: &LoopHandle<'static, AulinxState>) -> UdevData {
         .expect("Failed to insert session source");
 
     // 2. Detect primary GPU
-    let primary_gpu = smithay::backend::udev::primary_gpu(&session.seat())
+    let seat_name = String::from("seat0");
+    let primary_gpu = smithay::backend::udev::primary_gpu(&seat_name)
         .expect("Failed to detect primary GPU")
         .expect("No GPU found");
+
+    let primary_node = DrmNode::from_path(&primary_gpu)
+        .expect("Failed to get DRM node from primary GPU");
 
     tracing::info!("Primary GPU: {:?}", primary_gpu);
 
     // 3. Initialize udev for GPU hotplug monitoring
-    let udev_backend = UdevBackend::new(&session.seat())
+    let udev_backend = UdevBackend::new(&seat_name)
         .expect("Failed to create udev backend");
 
     // Process initially connected devices
@@ -129,7 +133,7 @@ pub fn init(loop_handle: &LoopHandle<'static, AulinxState>) -> UdevData {
 
     UdevData {
         session,
-        primary_gpu,
+        primary_gpu: primary_node,
         devices: HashMap::new(),
     }
 }

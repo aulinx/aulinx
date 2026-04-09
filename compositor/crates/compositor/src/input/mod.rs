@@ -49,7 +49,7 @@ impl AulinxState {
         let keycode = event.key_code();
         let key_state = event.state();
 
-        let seat = self.seat_state.seats().next().unwrap().clone();
+        let seat = self.seat.clone();
         let keyboard = seat.get_keyboard().unwrap();
 
         // We need to check keybindings and potentially act on the state after
@@ -70,29 +70,22 @@ impl AulinxState {
                 }
 
                 let sym = keysym.modified_sym();
-                use smithay::input::keyboard::keysyms;
-
-                match sym {
-                    // Super+Return = open terminal
-                    keysyms::KEY_Return => FilterResult::Intercept(KeyAction::Terminal),
-                    // Super+Q = close focused window
-                    keysyms::KEY_q | keysyms::KEY_Q => FilterResult::Intercept(KeyAction::Close),
-                    // Super+F = toggle floating
-                    keysyms::KEY_f | keysyms::KEY_F => {
-                        FilterResult::Intercept(KeyAction::ToggleFloat)
-                    }
-                    // Super+Escape = quit compositor
-                    keysyms::KEY_Escape => FilterResult::Intercept(KeyAction::Quit),
-                    // Super+1..9 = switch workspace
-                    keysyms::KEY_1 => FilterResult::Intercept(KeyAction::Workspace(0)),
-                    keysyms::KEY_2 => FilterResult::Intercept(KeyAction::Workspace(1)),
-                    keysyms::KEY_3 => FilterResult::Intercept(KeyAction::Workspace(2)),
-                    keysyms::KEY_4 => FilterResult::Intercept(KeyAction::Workspace(3)),
-                    keysyms::KEY_5 => FilterResult::Intercept(KeyAction::Workspace(4)),
-                    keysyms::KEY_6 => FilterResult::Intercept(KeyAction::Workspace(5)),
-                    keysyms::KEY_7 => FilterResult::Intercept(KeyAction::Workspace(6)),
-                    keysyms::KEY_8 => FilterResult::Intercept(KeyAction::Workspace(7)),
-                    keysyms::KEY_9 => FilterResult::Intercept(KeyAction::Workspace(8)),
+                // Match on raw keysym value (XKB keysym constants)
+                let raw = sym.raw();
+                match raw {
+                    0xff0d => FilterResult::Intercept(KeyAction::Terminal),    // Return
+                    0x0071 | 0x0051 => FilterResult::Intercept(KeyAction::Close), // q/Q
+                    0x0066 | 0x0046 => FilterResult::Intercept(KeyAction::ToggleFloat), // f/F
+                    0xff1b => FilterResult::Intercept(KeyAction::Quit),        // Escape
+                    0x0031 => FilterResult::Intercept(KeyAction::Workspace(0)), // 1
+                    0x0032 => FilterResult::Intercept(KeyAction::Workspace(1)), // 2
+                    0x0033 => FilterResult::Intercept(KeyAction::Workspace(2)), // 3
+                    0x0034 => FilterResult::Intercept(KeyAction::Workspace(3)), // 4
+                    0x0035 => FilterResult::Intercept(KeyAction::Workspace(4)), // 5
+                    0x0036 => FilterResult::Intercept(KeyAction::Workspace(5)), // 6
+                    0x0037 => FilterResult::Intercept(KeyAction::Workspace(6)), // 7
+                    0x0038 => FilterResult::Intercept(KeyAction::Workspace(7)), // 8
+                    0x0039 => FilterResult::Intercept(KeyAction::Workspace(8)), // 9
                     _ => FilterResult::Forward,
                 }
             },
@@ -143,7 +136,7 @@ impl AulinxState {
         let serial = SERIAL_COUNTER.next_serial();
         let time = Event::time_msec(&event);
 
-        let seat = self.seat_state.seats().next().unwrap().clone();
+        let seat = self.seat.clone();
         let pointer = seat.get_pointer().unwrap();
 
         // Find surface under pointer
@@ -152,21 +145,24 @@ impl AulinxState {
             window
                 .surface_under(
                     (pos.x - loc.x as f64, pos.y - loc.y as f64),
-                    (0, 0),
+                    smithay::desktop::WindowSurfaceType::ALL,
                 )
                 .map(|(surface, surface_loc)| {
                     (
                         surface,
-                        (loc.x + surface_loc.x, loc.y + surface_loc.y),
+                        smithay::utils::Point::from((
+                            (loc.x + surface_loc.x) as f64,
+                            (loc.y + surface_loc.y) as f64,
+                        )),
                     )
                 })
         });
 
         pointer.motion(
             self,
-            focus.map(|(s, loc)| (s, loc.into())),
+            focus,
             &MotionEvent {
-                location: pos.into(),
+                location: smithay::utils::Point::from((pos.x, pos.y)),
                 serial,
                 time,
             },
@@ -180,7 +176,7 @@ impl AulinxState {
         let button = event.button_code();
         let button_state = event.state();
 
-        let seat = self.seat_state.seats().next().unwrap().clone();
+        let seat = self.seat.clone();
         let pointer = seat.get_pointer().unwrap();
         let keyboard = seat.get_keyboard().unwrap();
 
@@ -230,7 +226,7 @@ impl AulinxState {
     }
 
     fn on_pointer_axis<B: InputBackend>(&mut self, event: B::PointerAxisEvent) {
-        let seat = self.seat_state.seats().next().unwrap().clone();
+        let seat = self.seat.clone();
         let pointer = seat.get_pointer().unwrap();
         let time = Event::time_msec(&event);
 

@@ -1,0 +1,128 @@
+<h2>Research Findings: Architecture Corrections</h2>
+<p class="subtitle">Verified against Anvil, COSMIC (cosmic-comp), and niri</p>
+
+<div class="section">
+  <h3>Critical Fixes</h3>
+  <div style="display: grid; gap: 12px;">
+
+    <div style="background: #2d1b1b; border: 1px solid #e94560; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #e94560; margin-bottom: 8px;">1. Smithay Version: 0.3 → 0.7.0</div>
+      <div style="font-size: 13px; color: #ccc; line-height: 1.6;">
+        Smithay 0.3 is years old and missing most APIs we need (<code>desktop</code>, <code>renderer_glow</code>, <code>WlrLayerShellState</code>, <code>X11Wm</code>, <code>VirtualKeyboardManagerState</code>, <code>SeatState</code>). All these exist in <strong>0.7.0</strong> (latest, published 2025-06-24). calloop 0.14 is also only compatible with 0.7.0.
+      </div>
+    </div>
+
+    <div style="background: #2d1b1b; border: 1px solid #e94560; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #e94560; margin-bottom: 8px;">2. Tiling: BSP Tree → N-ary Tree</div>
+      <div style="font-size: 13px; color: #ccc; line-height: 1.6;">
+        Neither COSMIC nor niri uses BSP. COSMIC uses <code>id_tree</code> (n-ary tree with Group/Mapped/Placeholder nodes). Niri uses column-based scrolling. N-ary trees are more flexible for real-world window management. We should follow COSMIC's pattern.
+      </div>
+    </div>
+
+    <div style="background: #2d1b1b; border: 1px solid #e94560; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #e94560; margin-bottom: 8px;">3. Missing Cargo Features</div>
+      <div style="font-size: 13px; color: #ccc; line-height: 1.6;">
+        Must add: <code>backend_gbm</code> (DRM buffer allocation), <code>backend_egl</code> (GL context), <code>backend_session_libseat</code> (VT switching), <code>renderer_multi</code> (multi-GPU + software fallback), <code>use_system_lib</code> (EGL/Mesa).
+      </div>
+    </div>
+
+    <div style="background: #2d1b1b; border: 1px solid #e94560; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #e94560; margin-bottom: 8px;">4. Screencopy: Not Built Into Smithay</div>
+      <div style="font-size: 13px; color: #ccc; line-height: 1.6;">
+        No <code>ScreencopyManagerState</code> in Smithay. Must implement manually using <code>wayland-protocols-wlr</code> bindings, or just do renderer pixel readback for AI capture (skip the protocol for now).
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Validated Decisions (Confirmed Best Practice)</h3>
+  <div style="display: grid; gap: 12px;">
+
+    <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Calloop-only (no Tokio)</div>
+      <div style="font-size: 13px; color: #ccc;">All 3 production compositors are calloop-only. None use Tokio. Confirmed correct.</div>
+    </div>
+
+    <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Single central state struct</div>
+      <div style="font-size: 13px; color: #ccc;">All 3 use one central state struct. Smithay's delegate macros require it. Confirmed correct.</div>
+    </div>
+
+    <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Hybrid tiling/floating</div>
+      <div style="font-size: 13px; color: #ccc;">COSMIC does exactly this — tiling with floating support. Confirmed correct.</div>
+    </div>
+
+    <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Unix socket IPC (JSON)</div>
+      <div style="font-size: 13px; color: #ccc;">Niri uses exactly this pattern — Unix socket + newline-delimited JSON, integrated with calloop via <code>Generic::new(listener, Interest::READ, Mode::Level)</code>.</div>
+    </div>
+
+    <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">WindowElement enum for Wayland + X11</div>
+      <div style="font-size: 13px; color: #ccc;">Anvil and COSMIC both wrap Wayland and X11 surfaces in an enum. Confirmed correct.</div>
+    </div>
+
+    <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Layer Shell as separate client</div>
+      <div style="font-size: 13px; color: #ccc;">Standard Wayland pattern. Compositor provides protocol; palette is its own process. Confirmed correct.</div>
+    </div>
+
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Revised Cargo.toml</h3>
+  <div class="mockup">
+    <div class="mockup-header">compositor/Cargo.toml</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.8; padding: 20px; background: #1a1a2e; color: #e0e0e0;">
+      <div style="color: #666;"># Changed: 0.3 → 0.7</div>
+      <div>smithay = { version = "<span style="color: #4ade80; font-weight: bold;">0.7</span>", features = [</div>
+      <div>&nbsp;&nbsp;"desktop", "wayland_frontend",</div>
+      <div>&nbsp;&nbsp;"backend_drm", "backend_udev", "backend_winit",</div>
+      <div>&nbsp;&nbsp;<span style="color: #4ade80;">"backend_gbm", "backend_egl",</span> <span style="color: #666;"># NEW</span></div>
+      <div>&nbsp;&nbsp;<span style="color: #4ade80;">"backend_session_libseat",</span> <span style="color: #666;"># NEW</span></div>
+      <div>&nbsp;&nbsp;"backend_libinput",</div>
+      <div>&nbsp;&nbsp;"renderer_glow", <span style="color: #4ade80;">"renderer_multi",</span> <span style="color: #666;"># NEW</span></div>
+      <div>&nbsp;&nbsp;<span style="color: #4ade80;">"use_system_lib",</span> <span style="color: #666;"># NEW</span></div>
+      <div>&nbsp;&nbsp;"xwayland",</div>
+      <div>] }</div>
+      <div style="margin-top: 8px;">calloop = "0.14"</div>
+      <div><span style="color: #e94560; text-decoration: line-through;">tokio</span> <span style="color: #666;"># REMOVED</span></div>
+      <div><span style="color: #4ade80;">id_tree = "1"</span> <span style="color: #666;"># NEW — n-ary tree for tiling (COSMIC pattern)</span></div>
+      <div><span style="color: #4ade80;">image = "0.25"</span> <span style="color: #666;"># NEW — PNG encoding for screen capture</span></div>
+      <div><span style="color: #4ade80;">xkbcommon = "0.8"</span> <span style="color: #666;"># NEW — keyboard mapping</span></div>
+      <div><span style="color: #4ade80;">base64 = "0.22"</span> <span style="color: #666;"># NEW — capture encoding</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Missing Protocols to Add</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #f0a500; margin-bottom: 8px;">Essential (must have)</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.8;">
+        linux-dmabuf-v1<br>
+        ext-session-lock-v1<br>
+        wp-viewporter<br>
+        wp-fractional-scale-v1<br>
+        xdg-activation-v1<br>
+        cursor-shape-v1
+      </div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #53d8fb; margin-bottom: 8px;">Important (daily driver)</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.8;">
+        wp-presentation-time<br>
+        data-control (clipboard)<br>
+        pointer-constraints + relative-pointer<br>
+        keyboard-shortcuts-inhibit<br>
+        ext-idle-notify-v1<br>
+        virtual-keyboard-v1 + virtual-pointer
+      </div>
+    </div>
+  </div>
+</div>

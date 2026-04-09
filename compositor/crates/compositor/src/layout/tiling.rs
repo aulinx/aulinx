@@ -1,17 +1,9 @@
 //! N-ary tree tiling layout (COSMIC pattern).
-//!
-//! The tree has two node types:
-//! - `Group`: internal node with a split direction and sized children
-//! - `Leaf`: a window reference
-//!
-//! When a window is added, the focused leaf splits. When removed,
-//! the empty slot merges with its sibling.
 
 use id_tree::{InsertBehavior, Node, NodeId, Tree, TreeBuilder};
 
 use super::{LayoutRect, WindowId};
 
-/// Split direction for a group node.
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum SplitDirection {
     Horizontal,
@@ -27,12 +19,10 @@ impl SplitDirection {
     }
 }
 
-/// Data stored in each tree node.
 #[derive(Debug, Clone)]
 pub enum TilingNode {
     Group {
         direction: SplitDirection,
-        /// Relative sizes of children (sum to 1.0).
         ratios: Vec<f32>,
     },
     Leaf {
@@ -40,11 +30,9 @@ pub enum TilingNode {
     },
 }
 
-/// The tiling layout tree.
 pub struct TilingLayout {
     tree: Tree<TilingNode>,
     root_id: Option<NodeId>,
-    /// Alternating split direction for new insertions.
     next_direction: SplitDirection,
 }
 
@@ -57,12 +45,10 @@ impl TilingLayout {
         }
     }
 
-    /// Add a window to the layout. Splits at the focused position.
-    pub fn add_window(&mut self, window_id: WindowId, focused: Option<WindowId>) {
+    pub fn add_window(&mut self, window_id: WindowId, _focused: Option<WindowId>) {
         let new_leaf = TilingNode::Leaf { window_id };
 
         if self.root_id.is_none() {
-            // First window becomes root
             let id = self
                 .tree
                 .insert(Node::new(new_leaf), InsertBehavior::AsRoot)
@@ -71,30 +57,21 @@ impl TilingLayout {
             return;
         }
 
-        // Find the focused leaf to split next to
-        let split_at = focused
-            .and_then(|wid| self.find_leaf(wid))
-            .or_else(|| {
-                // Default: split at the last leaf
-                self.last_leaf()
-            });
-
+        // Find last leaf to split next to
+        let split_at = self.last_leaf();
         let Some(split_node_id) = split_at else {
             return;
         };
 
-        // Replace the focused leaf with a group containing [old_leaf, new_leaf]
         let old_data = self.tree.get(&split_node_id).unwrap().data().clone();
         let direction = self.next_direction;
         self.next_direction = direction.toggle();
 
-        // Change the split node to a group
         *self.tree.get_mut(&split_node_id).unwrap().data_mut() = TilingNode::Group {
             direction,
             ratios: vec![0.5, 0.5],
         };
 
-        // Add the old leaf and new leaf as children
         self.tree
             .insert(
                 Node::new(old_data),
@@ -109,7 +86,6 @@ impl TilingLayout {
             .unwrap();
     }
 
-    /// Remove a window from the layout.
     pub fn remove_window(&mut self, window_id: WindowId) {
         let Some(leaf_id) = self.find_leaf(window_id) else {
             return;
@@ -120,39 +96,25 @@ impl TilingLayout {
             .get(&leaf_id)
             .ok()
             .and_then(|n| n.parent())
-            .cloned();
+            .map(|p| p.clone());
 
-        // Remove the leaf
         self.tree.remove_node(leaf_id, id_tree::RemoveBehavior::DropChildren).ok();
 
-        // If parent is a group with one child, collapse it
         if let Some(parent_id) = parent_id {
             let children: Vec<NodeId> = self
                 .tree
                 .children_ids(&parent_id)
                 .ok()
-                .map(|iter| iter.cloned().collect())
+                .map(|iter| iter.map(|id| id.clone()).collect())
                 .unwrap_or_default();
 
             if children.len() == 1 {
-                // Replace parent with its sole remaining child
-                let child_id = children[0].clone();
-                let child_data = self.tree.get(&child_id).unwrap().data().clone();
+                let child_data = self.tree.get(&children[0]).unwrap().data().clone();
                 *self.tree.get_mut(&parent_id).unwrap().data_mut() = child_data;
-
-                // Move grandchildren to parent
-                let grandchildren: Vec<NodeId> = self
-                    .tree
-                    .children_ids(&child_id)
-                    .ok()
-                    .map(|iter| iter.cloned().collect())
-                    .unwrap_or_default();
-
                 self.tree
-                    .remove_node(child_id, id_tree::RemoveBehavior::LiftChildren)
+                    .remove_node(children[0].clone(), id_tree::RemoveBehavior::LiftChildren)
                     .ok();
             } else if children.is_empty() {
-                // Parent is now empty — remove it too if it's not root
                 if Some(&parent_id) != self.root_id.as_ref() {
                     self.tree
                         .remove_node(parent_id, id_tree::RemoveBehavior::DropChildren)
@@ -162,7 +124,6 @@ impl TilingLayout {
                     self.tree = TreeBuilder::new().build();
                 }
             } else {
-                // Update ratios to redistribute space
                 if let TilingNode::Group { ratios, .. } =
                     self.tree.get_mut(&parent_id).unwrap().data_mut()
                 {
@@ -171,12 +132,10 @@ impl TilingLayout {
                 }
             }
         } else {
-            // Removed root
             self.root_id = None;
         }
     }
 
-    /// Calculate rectangles for all windows given the available area.
     pub fn calculate_layout(&self, area: LayoutRect) -> Vec<(WindowId, LayoutRect)> {
         let mut result = Vec::new();
         if let Some(ref root_id) = self.root_id {
@@ -205,7 +164,7 @@ impl TilingLayout {
                     .tree
                     .children_ids(node_id)
                     .ok()
-                    .map(|iter| iter.cloned().collect())
+                    .map(|iter| iter.map(|id| id.clone()).collect())
                     .unwrap_or_default();
 
                 let mut offset = 0;
@@ -241,10 +200,10 @@ impl TilingLayout {
         }
     }
 
-    /// Find the tree node containing a given window.
     fn find_leaf(&self, window_id: WindowId) -> Option<NodeId> {
+        let root = self.root_id.as_ref()?;
         self.tree
-            .traverse_pre_order_ids(self.root_id.as_ref()?)
+            .traverse_pre_order_ids(root)
             .ok()?
             .find(|id| {
                 matches!(
@@ -252,13 +211,13 @@ impl TilingLayout {
                     Ok(TilingNode::Leaf { window_id: wid }) if *wid == window_id
                 )
             })
-            .cloned()
+            .map(|id| id.clone())
     }
 
-    /// Find the last (rightmost/bottommost) leaf.
     fn last_leaf(&self) -> Option<NodeId> {
+        let root = self.root_id.as_ref()?;
         self.tree
-            .traverse_post_order_ids(self.root_id.as_ref()?)
+            .traverse_post_order_ids(root)
             .ok()?
             .find(|id| {
                 matches!(
@@ -266,10 +225,9 @@ impl TilingLayout {
                     Ok(TilingNode::Leaf { .. })
                 )
             })
-            .cloned()
+            .map(|id| id.clone())
     }
 
-    /// Get the number of windows in the layout.
     pub fn window_count(&self) -> usize {
         let Some(ref root_id) = self.root_id else {
             return 0;

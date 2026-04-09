@@ -1,0 +1,160 @@
+<h2>Aulinx: The Semantic Compositor</h2>
+<p class="subtitle">What no one has built — compositor-level AI understanding</p>
+
+<div class="section">
+  <h3>Current Industry: External Observers</h3>
+  <div class="mockup">
+    <div class="mockup-header">How every AI desktop agent works today (2026)</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.8; padding: 24px; background: #0d1117; color: #c9d1d9;">
+      <div style="display: grid; grid-template-columns: auto auto 1fr; gap: 6px 12px; align-items: center;">
+        <div style="color: #e94560;">1.</div>
+        <div style="color: #e94560; font-weight: bold;">Screenshot</div>
+        <div style="color: #888;">Take full-screen capture (lossy, ~500KB)</div>
+
+        <div style="color: #e94560;">2.</div>
+        <div style="color: #e94560; font-weight: bold;">Upload</div>
+        <div style="color: #888;">Send pixels to vision model (1,200-5,000 tokens)</div>
+
+        <div style="color: #e94560;">3.</div>
+        <div style="color: #e94560; font-weight: bold;">Interpret</div>
+        <div style="color: #888;">Model guesses what's on screen from pixels</div>
+
+        <div style="color: #e94560;">4.</div>
+        <div style="color: #e94560; font-weight: bold;">Act</div>
+        <div style="color: #888;">Click at guessed (x, y) coordinates</div>
+
+        <div style="color: #e94560;">5.</div>
+        <div style="color: #e94560; font-weight: bold;">Repeat</div>
+        <div style="color: #888;">Re-perceive everything from scratch. No memory.</div>
+      </div>
+      <div style="margin-top: 16px; padding: 10px; background: #1c1032; border-radius: 6px; text-align: center;">
+        <span style="color: #c084fc;">Claude, Operator, Mariner, UFO3 — all do this</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>The Aulinx Approach: Semantic Compositor</h3>
+  <div class="mockup">
+    <div class="mockup-header">What no one has built</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.5; padding: 24px; background: #0d1117; color: #c9d1d9;">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px;">
+        <div style="background: #2d1b1b; border: 1px solid #e94560; border-radius: 8px; padding: 16px;">
+          <div style="color: #e94560; font-weight: bold; font-size: 13px; margin-bottom: 8px;">Traditional Compositor</div>
+          <div style="font-size: 11px; color: #999; line-height: 1.6;">
+            Receives pixel buffers<br>
+            Arranges rectangles<br>
+            Routes input events<br>
+            <strong style="color: #e94560;">Understands nothing</strong><br>
+            AI must screenshot to "see"
+          </div>
+        </div>
+        <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 16px;">
+          <div style="color: #4ade80; font-weight: bold; font-size: 13px; margin-bottom: 8px;">Semantic Compositor</div>
+          <div style="font-size: 11px; color: #999; line-height: 1.6;">
+            Receives pixel buffers <em>+ semantic data</em><br>
+            Maintains live scene graph<br>
+            Emits semantic events<br>
+            <strong style="color: #4ade80;">Understands everything</strong><br>
+            AI queries meaning directly
+          </div>
+        </div>
+      </div>
+
+      <!-- Architecture -->
+      <div style="text-align: center; margin-bottom: 8px;">
+        <span style="color: #666; font-size: 10px; text-transform: uppercase; letter-spacing: 2px;">Architecture</span>
+      </div>
+
+      <div style="border: 2px solid #4ade80; border-radius: 12px; padding: 16px; background: #0a0f0a;">
+
+        <!-- Semantic Layer -->
+        <div style="background: #1b2d1b; border: 1px solid #4ade80; border-radius: 8px; padding: 14px; margin-bottom: 12px;">
+          <div style="color: #4ade80; font-weight: bold; font-size: 14px; margin-bottom: 8px; text-align: center;">Semantic Scene Graph (THE NEW LAYER)</div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px;">
+            <div style="background: #0d1117; border-radius: 6px; padding: 10px; text-align: center;">
+              <div style="color: #79c0ff; font-weight: bold; font-size: 11px;">Live State</div>
+              <div style="font-size: 9px; color: #888; margin-top: 4px;">Every element, label, state<br>updated in real-time</div>
+            </div>
+            <div style="background: #0d1117; border-radius: 6px; padding: 10px; text-align: center;">
+              <div style="color: #79c0ff; font-weight: bold; font-size: 11px;">Semantic Diffs</div>
+              <div style="font-size: 9px; color: #888; margin-top: 4px;">"button changed state"<br>"dialog appeared at Y"</div>
+            </div>
+            <div style="background: #0d1117; border-radius: 6px; padding: 10px; text-align: center;">
+              <div style="color: #79c0ff; font-weight: bold; font-size: 11px;">Cross-App Context</div>
+              <div style="font-size: 9px; color: #888; margin-top: 4px;">Clipboard flows, drag ops<br>multi-window workflows</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Data Sources -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="color: #f0a500; font-weight: bold; font-size: 10px;">Newton Protocol</div>
+            <div style="font-size: 9px; color: #888;">Apps push a11y data<br>to compositor (native)</div>
+          </div>
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="color: #f0a500; font-weight: bold; font-size: 10px;">AT-SPI Bridge</div>
+            <div style="font-size: 9px; color: #888;">Legacy apps via<br>existing a11y tree</div>
+          </div>
+          <div style="background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 10px; text-align: center;">
+            <div style="color: #f0a500; font-weight: bold; font-size: 10px;">Vision Fallback</div>
+            <div style="font-size: 9px; color: #888;">Screen2AX for apps<br>with no a11y support</div>
+          </div>
+        </div>
+
+        <!-- Standard Compositor below -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px;">
+          <div style="background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="color: #8b949e; font-size: 10px;">XDG Shell</div>
+          </div>
+          <div style="background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="color: #8b949e; font-size: 10px;">Layer Shell</div>
+          </div>
+          <div style="background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="color: #8b949e; font-size: 10px;">XWayland</div>
+          </div>
+          <div style="background: #161b22; border: 1px solid #21262d; border-radius: 6px; padding: 8px; text-align: center;">
+            <div style="color: #8b949e; font-size: 10px;">Input / Render</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- IPC to AI -->
+      <div style="text-align: center; margin: 12px 0 6px;">
+        <div style="display: inline-block; background: #21262d; border-radius: 20px; padding: 4px 16px;">
+          <span style="color: #4ade80; font-size: 11px;">&#9660; Semantic IPC &mdash; scene graph queries + event stream &#9660;</span>
+        </div>
+      </div>
+
+      <div style="background: #0f3460; border: 1px solid #1a5276; border-radius: 8px; padding: 14px; text-align: center;">
+        <div style="color: #e94560; font-weight: bold; font-size: 14px; margin-bottom: 4px;">Python AI Agent</div>
+        <div style="font-size: 11px; color: #aaa;">Queries scene graph (50 tokens) instead of screenshots (5,000 tokens)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Why This Is Novel</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">100x cheaper perception</div>
+      <div style="font-size: 12px; color: #ccc;">50 tokens (scene graph query) vs 5,000 tokens (screenshot + vision model). No API calls needed for perception.</div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Real-time, not polling</div>
+      <div style="font-size: 12px; color: #ccc;">Event-driven semantic updates instead of screenshot loops. The AI knows the instant something changes.</div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Ground truth, not guessing</div>
+      <div style="font-size: 12px; color: #ccc;">The compositor knows exactly what's on screen. No OCR errors, no misidentified buttons, no coordinate guessing.</div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">No one has done this</div>
+      <div style="font-size: 12px; color: #ccc;">Zero results for compositor-level AI integration. GNOME's Newton is the closest concept but targets screen readers, not AI agents.</div>
+    </div>
+  </div>
+</div>

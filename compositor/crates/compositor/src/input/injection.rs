@@ -23,7 +23,7 @@ impl AulinxState {
     /// sends press + release. This works for ASCII text. For Unicode,
     /// a virtual keyboard protocol would be better (future improvement).
     pub fn inject_text(&mut self, text: &str) -> Result<(), String> {
-        let seat = self.seat_state.seats().next().ok_or("no seat")?;
+        let seat = self.seat.clone();
         let keyboard = seat.get_keyboard().ok_or("no keyboard")?;
 
         // Check there's a focused surface
@@ -77,7 +77,7 @@ impl AulinxState {
 
     /// Send a keyboard shortcut like "ctrl+shift+t".
     pub fn inject_key_combo(&mut self, combo: &str) -> Result<(), String> {
-        let seat = self.seat_state.seats().next().ok_or("no seat")?;
+        let seat = self.seat.clone();
         let keyboard = seat.get_keyboard().ok_or("no keyboard")?;
 
         let parsed = parse_key_combo(combo)?;
@@ -123,7 +123,7 @@ impl AulinxState {
         button: Option<u32>,
         action: Option<&str>,
     ) -> Result<(), String> {
-        let seat = self.seat_state.seats().next().ok_or("no seat")?;
+        let seat = self.seat.clone();
         let pointer = seat.get_pointer().ok_or("no pointer")?;
 
         let serial = SERIAL_COUNTER.next_serial();
@@ -135,19 +135,22 @@ impl AulinxState {
             window
                 .surface_under(
                     (x - loc.x as f64, y - loc.y as f64),
-                    (0, 0),
+                    smithay::desktop::WindowSurfaceType::ALL,
                 )
                 .map(|(surface, surface_loc)| {
-                    (surface, (loc.x + surface_loc.x, loc.y + surface_loc.y))
+                    (surface, smithay::utils::Point::from((
+                        (loc.x + surface_loc.x) as f64,
+                        (loc.y + surface_loc.y) as f64,
+                    )))
                 })
         });
 
         // Move pointer
         pointer.motion(
             self,
-            focus.map(|(s, loc)| (s, loc.into())),
+            focus,
             &MotionEvent {
-                location: (x, y).into(),
+                location: smithay::utils::Point::from((x, y)),
                 serial,
                 time,
             },

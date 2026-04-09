@@ -1,0 +1,128 @@
+<h2>Aulinx Compositor Architecture</h2>
+<p class="subtitle">Full-product AI-native Wayland compositor built with Smithay</p>
+
+<div class="section">
+  <h3>System Architecture</h3>
+  <div class="mockup">
+    <div class="mockup-header">Data Flow</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6; padding: 24px; background: #1a1a2e; color: #e0e0e0;">
+      <div style="text-align: center; margin-bottom: 20px;">
+        <div style="display: inline-block; background: #0f3460; padding: 10px 24px; border-radius: 8px; color: #e94560; font-weight: bold; font-size: 16px;">
+          Python Agent (151 tools)
+        </div>
+        <div style="font-size: 24px; color: #e94560;">|</div>
+        <div style="color: #aaa; font-size: 11px;">Unix Socket &mdash; JSON-RPC</div>
+        <div style="color: #aaa; font-size: 11px;">/run/aulinx/ai.sock</div>
+        <div style="font-size: 24px; color: #e94560;">|</div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="color: #e94560; font-weight: bold; margin-bottom: 6px;">IPC Server</div>
+          <div style="font-size: 11px; color: #aaa;">windows.* / input.* / screen.*</div>
+          <div style="font-size: 11px; color: #aaa;">Calloop UnixListener</div>
+        </div>
+        <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="color: #e94560; font-weight: bold; margin-bottom: 6px;">AulinxState</div>
+          <div style="font-size: 11px; color: #aaa;">Central hub</div>
+          <div style="font-size: 11px; color: #aaa;">All Smithay delegates</div>
+        </div>
+        <div style="background: #16213e; border: 1px solid #0f3460; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="color: #e94560; font-weight: bold; margin-bottom: 6px;">Layout Engine</div>
+          <div style="font-size: 11px; color: #aaa;">Hybrid tiling/floating</div>
+          <div style="font-size: 11px; color: #aaa;">BSP tree + z-stack</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px;">
+        <div style="background: #1a1a3e; border: 1px solid #333; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #53d8fb; font-weight: bold; font-size: 12px;">XDG Shell</div>
+          <div style="font-size: 10px; color: #888;">Windows</div>
+        </div>
+        <div style="background: #1a1a3e; border: 1px solid #333; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #53d8fb; font-weight: bold; font-size: 12px;">Layer Shell</div>
+          <div style="font-size: 10px; color: #888;">AI Palette</div>
+        </div>
+        <div style="background: #1a1a3e; border: 1px solid #333; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #53d8fb; font-weight: bold; font-size: 12px;">XWayland</div>
+          <div style="font-size: 10px; color: #888;">X11 Apps</div>
+        </div>
+        <div style="background: #1a1a3e; border: 1px solid #333; border-radius: 6px; padding: 10px; text-align: center;">
+          <div style="color: #53d8fb; font-weight: bold; font-size: 12px;">Screencopy</div>
+          <div style="font-size: 10px; color: #888;">Capture</div>
+        </div>
+      </div>
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+        <div style="background: #162032; border: 1px solid #0f3460; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="color: #f0a500; font-weight: bold; margin-bottom: 4px;">Winit Backend</div>
+          <div style="font-size: 11px; color: #aaa;">Development (nested in GNOME)</div>
+        </div>
+        <div style="background: #162032; border: 1px solid #0f3460; border-radius: 6px; padding: 12px; text-align: center;">
+          <div style="color: #f0a500; font-weight: bold; margin-bottom: 4px;">DRM/KMS + Udev Backend</div>
+          <div style="font-size: 11px; color: #aaa;">Production (bare metal)</div>
+        </div>
+      </div>
+
+      <div style="text-align: center; margin-top: 16px;">
+        <div style="display: inline-block; background: #2d1b4e; border: 1px solid #6c3ea0; border-radius: 6px; padding: 8px 20px;">
+          <span style="color: #c084fc; font-weight: bold;">Glow/OpenGL Renderer</span>
+          <span style="font-size: 11px; color: #aaa;"> &mdash; damage tracking, frame scheduling</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Module Structure</h3>
+  <div class="mockup">
+    <div class="mockup-header">compositor/src/</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.8; padding: 20px; background: #1a1a2e; color: #e0e0e0;">
+      <div><span style="color: #e94560;">main.rs</span> <span style="color: #666;">&mdash; entry point, backend selection, event loop</span></div>
+      <div><span style="color: #e94560;">state.rs</span> <span style="color: #666;">&mdash; AulinxState + all Smithay delegate impls</span></div>
+      <div><span style="color: #e94560;">config.rs</span> <span style="color: #666;">&mdash; socket path, default layout mode</span></div>
+      <div><span style="color: #e94560;">window.rs</span> <span style="color: #666;">&mdash; WindowElement enum (Wayland + X11)</span></div>
+      <div><span style="color: #e94560;">workspace.rs</span> <span style="color: #666;">&mdash; workspace management, Super+1..9</span></div>
+      <div><span style="color: #e94560;">focus.rs</span> <span style="color: #666;">&mdash; keyboard/pointer focus tracking</span></div>
+      <div><span style="color: #e94560;">cursor.rs</span> <span style="color: #666;">&mdash; cursor theme loading</span></div>
+      <div><span style="color: #e94560;">xwayland.rs</span> <span style="color: #666;">&mdash; X11 compatibility layer</span></div>
+      <div style="margin-top: 8px;"><span style="color: #53d8fb;">backend/</span> <span style="color: #666;">&mdash; winit.rs (dev) + udev.rs (prod)</span></div>
+      <div><span style="color: #53d8fb;">shell/</span> <span style="color: #666;">&mdash; xdg.rs + layer.rs + decoration.rs</span></div>
+      <div><span style="color: #53d8fb;">layout/</span> <span style="color: #666;">&mdash; tiling.rs (BSP) + floating.rs</span></div>
+      <div><span style="color: #53d8fb;">ipc/</span> <span style="color: #666;">&mdash; mod.rs (server) + protocol.rs + handlers.rs</span></div>
+      <div><span style="color: #53d8fb;">input/</span> <span style="color: #666;">&mdash; mod.rs (physical) + injection.rs (AI virtual)</span></div>
+      <div><span style="color: #53d8fb;">render/</span> <span style="color: #666;">&mdash; mod.rs + renderer.rs (Glow + damage)</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>IPC Commands</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px;">
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #e94560; margin-bottom: 8px;">Window Control</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.8;">
+        windows.list<br>
+        windows.focus(id)<br>
+        windows.move(id, x, y, w, h)<br>
+        windows.close(id)<br>
+        windows.screenshot(id)
+      </div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #53d8fb; margin-bottom: 8px;">Input Injection</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.8;">
+        input.type(text)<br>
+        input.key(combo)<br>
+        input.mouse(x, y, btn, action)
+      </div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #f0a500; margin-bottom: 8px;">Screen Capture</div>
+      <div style="font-size: 12px; color: #ccc; line-height: 1.8;">
+        screen.capture(region?)
+      </div>
+    </div>
+  </div>
+</div>

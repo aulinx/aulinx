@@ -1,0 +1,196 @@
+<h2>Aulinx: Two Products, One Codebase</h2>
+<p class="subtitle">Semantic Desktop Layer + AI-Native Compositor, built simultaneously</p>
+
+<div class="section">
+  <h3>Workspace Structure</h3>
+  <div class="mockup">
+    <div class="mockup-header">compositor/ → Rust workspace with 3 crates</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 2; padding: 20px; background: #0d1117; color: #c9d1d9;">
+      <div><span style="color: #4ade80; font-weight: bold;">compositor/</span> <span style="color: #484f58;">&mdash; Cargo workspace root</span></div>
+      <div>&nbsp;&nbsp;<span style="color: #4ade80;">Cargo.toml</span> <span style="color: #484f58;">&mdash; workspace members</span></div>
+      <div style="margin-top: 8px;">&nbsp;&nbsp;<span style="color: #79c0ff; font-weight: bold;">crates/semantic/</span> <span style="color: #484f58;">&mdash; aulinx-semantic (the core library)</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #79c0ff;">src/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">lib.rs</span> <span style="color: #484f58;">&mdash; public API</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">graph.rs</span> <span style="color: #484f58;">&mdash; semantic scene graph data structure</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">node.rs</span> <span style="color: #484f58;">&mdash; SemanticNode: window, element, text, etc.</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">diff.rs</span> <span style="color: #484f58;">&mdash; incremental change detection + events</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">query.rs</span> <span style="color: #484f58;">&mdash; scene.query(), scene.find(), filters</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">action.rs</span> <span style="color: #484f58;">&mdash; element.activate(), semantic actions</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #484f58;">sources/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">mod.rs</span> <span style="color: #484f58;">&mdash; Source trait (pluggable data providers)</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">atspi.rs</span> <span style="color: #484f58;">&mdash; AT-SPI accessibility tree → nodes</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">compositor_ipc.rs</span> <span style="color: #484f58;">&mdash; Sway/Hyprland/niri IPC → windows</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">direct.rs</span> <span style="color: #484f58;">&mdash; direct surface injection (used by compositor)</span></div>
+
+      <div style="margin-top: 12px;">&nbsp;&nbsp;<span style="color: #e94560; font-weight: bold;">crates/daemon/</span> <span style="color: #484f58;">&mdash; aulinx-semanticd (standalone daemon, Product 1)</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #e94560;">src/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">main.rs</span> <span style="color: #484f58;">&mdash; daemon entry: detect compositor, start sources, serve IPC</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">ipc.rs</span> <span style="color: #484f58;">&mdash; Unix socket JSON-RPC server</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">events.rs</span> <span style="color: #484f58;">&mdash; event stream subscriptions</span></div>
+
+      <div style="margin-top: 12px;">&nbsp;&nbsp;<span style="color: #c084fc; font-weight: bold;">crates/compositor/</span> <span style="color: #484f58;">&mdash; aulinx-compositor (Smithay compositor, Product 2)</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c084fc;">src/</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">main.rs</span> <span style="color: #484f58;">&mdash; entry, backend selection, event loop</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">state.rs</span> <span style="color: #484f58;">&mdash; AulinxState + Smithay delegates</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #484f58;">backend/</span> <span style="color: #484f58;">&mdash; winit.rs + udev.rs</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #484f58;">shell/</span> <span style="color: #484f58;">&mdash; xdg.rs + layer.rs + decoration.rs</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #484f58;">layout/</span> <span style="color: #484f58;">&mdash; tiling.rs + floating.rs</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #484f58;">input/</span> <span style="color: #484f58;">&mdash; physical + injection</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #484f58;">render/</span> <span style="color: #484f58;">&mdash; Glow renderer</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">semantic_bridge.rs</span> <span style="color: #484f58;">&mdash; feeds surface data directly into aulinx-semantic</span></div>
+      <div>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span style="color: #c9d1d9;">ipc.rs</span> <span style="color: #484f58;">&mdash; unified IPC: semantic + compositor commands</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>How the Crates Connect</h3>
+  <div class="mockup">
+    <div class="mockup-header">Dependency graph</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 13px; line-height: 1.6; padding: 24px; background: #0d1117; color: #c9d1d9; text-align: center;">
+
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px;">
+        <!-- Product 1 -->
+        <div style="background: #1b1520; border: 2px solid #e94560; border-radius: 12px; padding: 16px;">
+          <div style="color: #e94560; font-weight: bold; font-size: 14px; margin-bottom: 12px;">Product 1: aulinx-semanticd</div>
+          <div style="font-size: 11px; color: #999; margin-bottom: 12px;">Standalone daemon<br>Works on Sway / Hyprland / GNOME / niri</div>
+          <div style="background: #0d1117; border-radius: 8px; padding: 10px;">
+            <div style="font-size: 10px; color: #666;">depends on</div>
+            <div style="color: #79c0ff; font-weight: bold;">aulinx-semantic</div>
+            <div style="font-size: 10px; color: #888; margin-top: 4px;">+ atspi source<br>+ compositor_ipc source</div>
+          </div>
+        </div>
+
+        <!-- Product 2 -->
+        <div style="background: #151520; border: 2px solid #c084fc; border-radius: 12px; padding: 16px;">
+          <div style="color: #c084fc; font-weight: bold; font-size: 14px; margin-bottom: 12px;">Product 2: aulinx-compositor</div>
+          <div style="font-size: 11px; color: #999; margin-bottom: 12px;">Full Wayland compositor<br>Deeper integration, no AT-SPI needed</div>
+          <div style="background: #0d1117; border-radius: 8px; padding: 10px;">
+            <div style="font-size: 10px; color: #666;">depends on</div>
+            <div style="color: #79c0ff; font-weight: bold;">aulinx-semantic</div>
+            <div style="font-size: 10px; color: #888; margin-top: 4px;">+ direct source<br>+ Smithay</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Shared core -->
+      <div style="background: #0a1a0a; border: 2px solid #4ade80; border-radius: 12px; padding: 20px;">
+        <div style="color: #4ade80; font-weight: bold; font-size: 16px; margin-bottom: 8px;">aulinx-semantic (shared core)</div>
+        <div style="font-size: 12px; color: #999; margin-bottom: 16px;">The semantic scene graph engine &mdash; the novel technology</div>
+
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+          <div style="background: #161b22; border-radius: 6px; padding: 10px;">
+            <div style="color: #79c0ff; font-size: 11px; font-weight: bold;">Scene Graph</div>
+            <div style="font-size: 9px; color: #888;">Windows → elements<br>→ properties</div>
+          </div>
+          <div style="background: #161b22; border-radius: 6px; padding: 10px;">
+            <div style="color: #79c0ff; font-size: 11px; font-weight: bold;">Diff Engine</div>
+            <div style="font-size: 9px; color: #888;">Change detection<br>semantic events</div>
+          </div>
+          <div style="background: #161b22; border-radius: 6px; padding: 10px;">
+            <div style="color: #79c0ff; font-size: 11px; font-weight: bold;">Query Engine</div>
+            <div style="font-size: 9px; color: #888;">find, filter<br>spatial queries</div>
+          </div>
+          <div style="background: #161b22; border-radius: 6px; padding: 10px;">
+            <div style="color: #79c0ff; font-size: 11px; font-weight: bold;">Actions</div>
+            <div style="font-size: 9px; color: #888;">activate, set_text<br>semantic intents</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Python agent at bottom -->
+      <div style="margin-top: 16px; text-align: center;">
+        <div style="display: inline-block; background: #21262d; border-radius: 20px; padding: 4px 16px; margin-bottom: 8px;">
+          <span style="color: #e94560; font-size: 11px;">&#9650; Unix Socket &mdash; JSON-RPC &mdash; scene.query / scene.subscribe / element.activate &#9650;</span>
+        </div>
+      </div>
+      <div style="background: #0f3460; border: 1px solid #1a5276; border-radius: 8px; padding: 12px;">
+        <div style="color: #e94560; font-weight: bold; font-size: 13px;">Python AI Agent (connects to whichever product is running)</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>Parallel Build Tracks</h3>
+  <div class="mockup">
+    <div class="mockup-header">What gets built when</div>
+    <div class="mockup-body" style="font-family: monospace; font-size: 12px; line-height: 1.6; padding: 24px; background: #0d1117; color: #c9d1d9;">
+
+      <div style="display: grid; grid-template-columns: 80px 1fr 1fr 1fr; gap: 2px; align-items: stretch;">
+        <!-- Header -->
+        <div style="padding: 8px; color: #666; font-size: 10px;"></div>
+        <div style="padding: 8px; text-align: center; color: #4ade80; font-weight: bold; font-size: 11px; background: #0a1a0a; border-radius: 6px 6px 0 0;">aulinx-semantic</div>
+        <div style="padding: 8px; text-align: center; color: #e94560; font-weight: bold; font-size: 11px; background: #1b1520; border-radius: 6px 6px 0 0;">aulinx-semanticd</div>
+        <div style="padding: 8px; text-align: center; color: #c084fc; font-weight: bold; font-size: 11px; background: #151520; border-radius: 6px 6px 0 0;">aulinx-compositor</div>
+
+        <!-- Week 1-2 -->
+        <div style="padding: 8px; color: #f0a500; font-size: 10px;">Week 1-2</div>
+        <div style="padding: 8px; background: #0a1a0a; font-size: 10px; color: #999;">Scene graph + node types<br>Query engine basics<br>Source trait</div>
+        <div style="padding: 8px; background: #1b1520; font-size: 10px; color: #999;">IPC server skeleton<br>AT-SPI source</div>
+        <div style="padding: 8px; background: #151520; font-size: 10px; color: #999;">Smithay skeleton<br>Winit backend<br>Blank window</div>
+
+        <!-- Week 3-4 -->
+        <div style="padding: 8px; color: #f0a500; font-size: 10px;">Week 3-4</div>
+        <div style="padding: 8px; background: #0a1a0a; font-size: 10px; color: #999;">Diff engine<br>Event subscriptions<br>Action dispatch</div>
+        <div style="padding: 8px; background: #1b1520; font-size: 10px; color: #999;">Compositor IPC source<br>(Sway/Hyprland)<br>Event streaming</div>
+        <div style="padding: 8px; background: #151520; font-size: 10px; color: #999;">XDG Shell<br>Window rendering<br>Basic input</div>
+
+        <!-- Week 5-6 -->
+        <div style="padding: 8px; color: #f0a500; font-size: 10px;">Week 5-6</div>
+        <div style="padding: 8px; background: #0a1a0a; font-size: 10px; color: #999;">Cross-app context<br>Spatial queries<br>Polish + tests</div>
+        <div style="padding: 8px; background: #1b1520; font-size: 10px; color: #999; border-radius: 0 0 0 0;">Python integration<br><strong style="color: #4ade80;">DEMO READY</strong></div>
+        <div style="padding: 8px; background: #151520; font-size: 10px; color: #999;">Tiling layout<br>Floating + decorations<br>semantic_bridge.rs</div>
+
+        <!-- Week 7-8 -->
+        <div style="padding: 8px; color: #f0a500; font-size: 10px;">Week 7-10</div>
+        <div style="padding: 8px; background: #0a1a0a; font-size: 10px; color: #999;">Direct source<br>(compositor integration)</div>
+        <div style="padding: 8px; background: #1b1520; font-size: 10px; color: #999; border-radius: 0 0 6px 0;">Vision fallback<br>source</div>
+        <div style="padding: 8px; background: #151520; font-size: 10px; color: #999; border-radius: 0 0 6px 0;">IPC + input injection<br>Layer Shell + XWayland<br>Screen capture<br><strong style="color: #c084fc;">COMPOSITOR READY</strong></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="section" style="margin-top: 24px;">
+  <h3>The Semantic IPC (shared by both products)</h3>
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #4ade80; margin-bottom: 8px;">Query</div>
+      <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
+        scene.graph() → full tree<br>
+        scene.window(id) → one window<br>
+        scene.find("Save") → matching elements<br>
+        scene.focused() → active window + element
+      </div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #e94560; margin-bottom: 8px;">Subscribe</div>
+      <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
+        scene.subscribe("*") → all events<br>
+        scene.subscribe("window.*") → window events<br>
+        scene.subscribe("element.changed") → UI changes<br>
+        scene.subscribe("focus.*") → focus changes
+      </div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #c084fc; margin-bottom: 8px;">Act</div>
+      <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
+        element.activate(id) → click/press<br>
+        element.set_value(id, text) → set text<br>
+        element.scroll(id, direction) → scroll<br>
+        window.focus(id) → focus window
+      </div>
+    </div>
+    <div style="background: var(--card-bg, #1e1e2e); border: 1px solid var(--border, #333); border-radius: 8px; padding: 16px;">
+      <div style="font-weight: bold; color: #f0a500; margin-bottom: 8px;">Compositor-only (Product 2)</div>
+      <div style="font-family: monospace; font-size: 11px; color: #ccc; line-height: 1.8;">
+        window.move(id, x, y, w, h)<br>
+        input.type(text) → virtual keyboard<br>
+        input.key(combo) → key shortcut<br>
+        screen.capture(region?) → PNG
+      </div>
+    </div>
+  </div>
+</div>
