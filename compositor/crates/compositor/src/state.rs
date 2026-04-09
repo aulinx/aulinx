@@ -58,6 +58,7 @@ pub struct AulinxState {
     pub start_time: Instant,
     pub socket_name: String,
     pub scene_graph: aulinx_semantic::SceneGraph,
+    pub semantic_bridge: Option<crate::semantic_bridge::SemanticBridge>,
 }
 
 impl AulinxState {
@@ -125,7 +126,33 @@ impl AulinxState {
             start_time: Instant::now(),
             socket_name,
             scene_graph: aulinx_semantic::SceneGraph::new(),
+            semantic_bridge: None,
         }
+    }
+}
+
+impl AulinxState {
+    /// Tile all windows equally across the output width.
+    pub fn relayout(&mut self) {
+        let Some(output) = self.space.outputs().next().cloned() else { return };
+        let Some(geo) = self.space.output_geometry(&output) else { return };
+
+        let windows: Vec<Window> = self.space.elements().cloned().collect();
+        let count = windows.len();
+        if count == 0 { return; }
+
+        let width = geo.size.w / count as i32;
+        for (i, window) in windows.iter().enumerate() {
+            let x = width * i as i32;
+            self.space.map_element(window.clone(), (x, 0), false);
+            if let Some(toplevel) = window.toplevel() {
+                toplevel.with_pending_state(|state| {
+                    state.size = Some((width, geo.size.h).into());
+                });
+                toplevel.send_configure();
+            }
+        }
+        tracing::info!("Relayout: {} windows, {}px each", count, width);
     }
 }
 
@@ -168,18 +195,28 @@ impl XdgShellHandler for AulinxState {
     }
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
-        // Send initial configure so client starts drawing
-        surface.with_pending_state(|state| {
-            state.size = Some((800, 600).into());
-        });
-        surface.send_configure();
-
-        let window = Window::new_wayland_window(surface);
+        let window = Window::new_wayland_window(surface.clone());
         self.space.map_element(window, (0, 0), false);
-        tracing::info!("New toplevel mapped (800x600)");
+
+        // Feed semantic bridge
+        if let Some(ref mut bridge) = self.semantic_bridge {
+            bridge.window_opened(&mut self.scene_graph, "wayland-client", "");
+        }
+
+        self.relayout();
+        tracing::info!("New toplevel mapped");
     }
 
-    fn toplevel_destroyed(&mut self, _surface: ToplevelSurface) {
+    fn toplevel_destroyed(&mut self, surface: ToplevelSurface) {
+        // Collect first to avoid borrow conflict
+        let to_remove: Vec<Window> = self.space.elements()
+            .filter(|w| w.toplevel().map(|t| t.wl_surface() == surface.wl_surface()).unwrap_or(false))
+            .cloned()
+            .collect();
+        for window in to_remove {
+            self.space.unmap_elem(&window);
+        }
+        self.relayout();
         tracing::info!("Toplevel destroyed");
     }
 

@@ -1,10 +1,9 @@
 //! aulinx-compositor — AI-native Wayland compositor.
-//!
-//! Usage:
-//!   AULINX_BACKEND=winit cargo run -p aulinx-compositor
 
 mod backend;
 mod input;
+mod ipc;
+mod semantic_bridge;
 mod state;
 
 use smithay::reexports::calloop::EventLoop;
@@ -44,16 +43,36 @@ fn main() {
 
     let mut state = AulinxState::new(display, loop_handle, loop_signal, backend_data);
 
+    // Initialize semantic bridge
+    let mut bridge = semantic_bridge::SemanticBridge::new();
+    let size = if let BackendData::Winit(ref w) = state.backend_data {
+        let s = w.backend.window_size();
+        (s.w as i32, s.h as i32)
+    } else {
+        (1920, 1080)
+    };
+    bridge.init(&mut state.scene_graph, size.0, size.1);
+    state.semantic_bridge = Some(bridge);
+
+    // Start IPC server
+    let socket_path = ipc::ipc_socket_path();
+    let mut ipc_server = ipc::CompositorIpc::new(&socket_path).ok();
+
     tracing::info!("Compositor running. Connect clients with:");
     tracing::info!("  WAYLAND_DISPLAY={} <client>", state.socket_name);
+    tracing::info!("AI agents connect to: {}", socket_path.display());
 
     event_loop
         .run(None, &mut state, |state| {
-            // Take display out to avoid double-borrow, dispatch, put back
+            // Dispatch Wayland clients
             if let Some(mut display) = state.display.take() {
                 display.dispatch_clients(state).ok();
                 display.flush_clients().ok();
                 state.display = Some(display);
+            }
+            // Poll IPC server
+            if let Some(ref mut ipc) = ipc_server {
+                ipc.poll(&state.scene_graph);
             }
         })
         .expect("Event loop failed");
