@@ -16,6 +16,7 @@ use smithay::desktop::{Space, Window};
 use smithay::input::{Seat, SeatHandler, SeatState};
 use smithay::reexports::calloop::generic::Generic;
 use smithay::reexports::calloop::{Interest, LoopHandle, LoopSignal, Mode, PostAction};
+use std::os::unix::io::AsFd;
 use smithay::reexports::wayland_server::backend::{ClientData, ClientId, DisconnectReason};
 use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::reexports::wayland_server::{Display, DisplayHandle};
@@ -27,6 +28,7 @@ use smithay::wayland::shell::xdg::{ToplevelSurface, XdgShellHandler, XdgShellSta
 use smithay::wayland::shm::{ShmHandler, ShmState};
 use smithay::wayland::socket::ListeningSocketSource;
 
+use smithay::backend::renderer::glow::GlowRenderer;
 use crate::backend::BackendData;
 
 pub struct ClientState {
@@ -39,6 +41,7 @@ impl ClientData for ClientState {
 }
 
 pub struct AulinxState {
+    pub display: Option<Display<Self>>,
     pub display_handle: DisplayHandle,
     pub compositor_state: CompositorState,
     pub xdg_shell_state: XdgShellState,
@@ -97,21 +100,15 @@ impl AulinxState {
             })
             .expect("Failed to insert socket source");
 
-        loop_handle
-            .insert_source(
-                Generic::new(display, Interest::READ, Mode::Level),
-                |_, display, state: &mut Self| {
-                    unsafe {
-                        display.get_mut().dispatch_clients(state).ok();
-                    }
-                    Ok(PostAction::Continue)
-                },
-            )
-            .expect("Failed to insert display source");
-
         tracing::info!("Wayland socket: {socket_name}");
 
+        // Advertise the output to clients
+        if let BackendData::Winit(ref winit_data) = backend_data {
+            winit_data.output.create_global::<Self>(&display_handle);
+        }
+
         Self {
+            display: Some(display),
             display_handle,
             compositor_state,
             xdg_shell_state,
@@ -147,11 +144,20 @@ impl CompositorHandler for AulinxState {
     }
 
     fn commit(&mut self, surface: &WlSurface) {
+        // Import buffers into the renderer
+        smithay::backend::renderer::utils::on_commit_buffer_handler::<Self>(surface);
+
         if let Some(window) = self.space.elements()
             .find(|w| w.toplevel().map(|t| t.wl_surface() == surface).unwrap_or(false))
             .cloned()
         {
             window.on_commit();
+        }
+        // Send initial configure to XDG toplevels that haven't received one
+        for toplevel in self.xdg_shell_state.toplevel_surfaces().iter() {
+            if toplevel.wl_surface() == surface && !toplevel.is_initial_configure_sent() {
+                toplevel.send_configure();
+            }
         }
     }
 }
@@ -162,9 +168,15 @@ impl XdgShellHandler for AulinxState {
     }
 
     fn new_toplevel(&mut self, surface: ToplevelSurface) {
+        // Send initial configure so client starts drawing
+        surface.with_pending_state(|state| {
+            state.size = Some((800, 600).into());
+        });
+        surface.send_configure();
+
         let window = Window::new_wayland_window(surface);
         self.space.map_element(window, (0, 0), false);
-        tracing::info!("New toplevel mapped");
+        tracing::info!("New toplevel mapped (800x600)");
     }
 
     fn toplevel_destroyed(&mut self, _surface: ToplevelSurface) {

@@ -3,8 +3,10 @@
 use std::time::Duration;
 
 use smithay::backend::renderer::damage::OutputDamageTracker;
+use smithay::backend::renderer::element::RenderElementStates;
 use smithay::backend::renderer::glow::GlowRenderer;
 use smithay::backend::winit::{self as winit_backend, WinitEvent, WinitGraphicsBackend};
+use smithay::desktop::space::SpaceRenderElements;
 use smithay::output::{Mode, Output, PhysicalProperties, Subpixel};
 use smithay::reexports::calloop::timer::{TimeoutAction, Timer};
 use smithay::reexports::calloop::LoopHandle;
@@ -43,6 +45,11 @@ pub fn init(loop_handle: &LoopHandle<'static, AulinxState>) -> WinitData {
     output.change_current_state(Some(mode), Some(Transform::Flipped180), None, Some((0, 0).into()));
     output.set_preferred(mode);
 
+    // CRITICAL: advertise the output to clients so they know display dimensions
+    // Without this, clients like foot won't create surfaces
+    // Note: create_global needs the display handle, which we don't have here.
+    // We'll do it in AulinxState::new instead.
+
     let damage_tracker = OutputDamageTracker::from_output(&output);
 
     loop_handle
@@ -55,8 +62,7 @@ pub fn init(loop_handle: &LoopHandle<'static, AulinxState>) -> WinitData {
                     }
                 }
                 WinitEvent::Input(event) => {
-                    // TODO: input dispatch
-                    let _ = event;
+                    state.process_input_event(event);
                 }
                 WinitEvent::Focus(_) => {}
                 WinitEvent::Redraw => {
@@ -95,7 +101,21 @@ fn render_frame(state: &mut AulinxState) {
         state.space.map_output(&output, (0, 0));
     }
 
-    // Render: bind returns (renderer, target), render, then drop to release borrow
+    let window_count = state.space.elements().count();
+
+    // Collect render elements from the space (window surfaces)
+    let elements: Vec<SpaceRenderElements<GlowRenderer, smithay::backend::renderer::element::surface::WaylandSurfaceRenderElement<GlowRenderer>>> = {
+        let renderer = winit_data.backend.renderer();
+        smithay::desktop::space::space_render_elements(renderer, [&state.space], &output, 1.0)
+            .unwrap_or_default()
+    };
+
+    static LOGGED: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+    if window_count > 0 && !LOGGED.swap(true, std::sync::atomic::Ordering::Relaxed) {
+        tracing::info!("Rendering {} windows, {} elements", window_count, elements.len());
+    }
+
+    // Render
     {
         let Ok((renderer, mut target)) = winit_data.backend.bind() else {
             return;
@@ -104,13 +124,13 @@ fn render_frame(state: &mut AulinxState) {
             renderer,
             &mut target,
             0,
-            &[] as &[smithay::backend::renderer::element::memory::MemoryRenderBufferRenderElement<GlowRenderer>],
+            &elements,
             [0.1, 0.1, 0.15, 1.0],
         );
-        // renderer and target dropped here
     }
     winit_data.backend.submit(None).ok();
 
+    // Send frame callbacks to clients
     state.space.elements().for_each(|window| {
         window.send_frame(
             &output,

@@ -4,6 +4,7 @@
 //!   AULINX_BACKEND=winit cargo run -p aulinx-compositor
 
 mod backend;
+mod input;
 mod state;
 
 use smithay::reexports::calloop::EventLoop;
@@ -47,6 +48,13 @@ fn main() {
     tracing::info!("  WAYLAND_DISPLAY={} <client>", state.socket_name);
 
     event_loop
-        .run(None, &mut state, |_state| {})
+        .run(None, &mut state, |state| {
+            // Take display out to avoid double-borrow, dispatch, put back
+            if let Some(mut display) = state.display.take() {
+                display.dispatch_clients(state).ok();
+                display.flush_clients().ok();
+                state.display = Some(display);
+            }
+        })
         .expect("Event loop failed");
 }
