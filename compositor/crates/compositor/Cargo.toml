@@ -24,8 +24,10 @@ smithay = { git = "https://github.com/Smithay/smithay", features = [
     "use_system_lib",
     "xwayland",
 ] }
+smithay-drm-extras = { git = "https://github.com/Smithay/smithay", default-features = false }
 calloop = { workspace = true }
 serde = { workspace = true }
+toml = "0.8"
 serde_json = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }

@@ -1,5 +1,6 @@
-.PHONY: install dev test lint clean run
+.PHONY: install dev test lint clean run build-compositor test-all
 
+# Python agent
 install:
 	pip install -e .
 
@@ -22,5 +23,32 @@ clean:
 run:
 	aulinx
 
+run-headless:
+	aulinx --mode core
+
 run-7b:
 	aulinx -m qwen2.5:7b
+
+doctor:
+	aulinx --doctor
+
+# Rust compositor
+build-compositor:
+	cd compositor && cargo build -p aulinx-compositor -p aulinx-semanticd
+
+build-compositor-release:
+	cd compositor && cargo build --release -p aulinx-compositor -p aulinx-semanticd
+
+test-compositor:
+	cd compositor && cargo test
+
+run-compositor:
+	cd compositor && WAYLAND_DISPLAY=wayland-0 cargo run -p aulinx-compositor
+
+demo:
+	cd compositor && bash demo.sh
+
+# All
+test-all: test test-compositor
+
+build-all: install build-compositor

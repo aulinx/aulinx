@@ -29,3 +29,22 @@ jobs:
           python-version: ${{ matrix.python-version }}
       - run: pip install -e ".[dev]"
       - run: pytest tests/ -v
+
+  compositor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwayland-dev libinput-dev libudev-dev libgbm-dev \
+            libxkbcommon-dev libseat-dev libegl-dev libgles2-mesa-dev \
+            libpixman-1-dev libdisplay-info-dev
+      - name: Build compositor
+        working-directory: compositor
+        run: cargo build -p aulinx-compositor -p aulinx-semanticd
+      - name: Check warnings
+        working-directory: compositor
+        run: cargo build -p aulinx-compositor 2>&1 | grep -v 'aulinx-semantic' | grep 'warning:' && exit 1 || true

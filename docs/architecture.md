@@ -1,60 +1,120 @@
-# Architecture
+# Aulinx Architecture
 
-## Overview
+## Three-Tier System
 
 ```
-┌──────────────────────────────────────────────────┐
-│  UI (React + Vite)                                │
-│  Command palette at localhost:5173                │
-│  Connects via WebSocket to backend                │
-├──────────────────────────────────────────────────┤
-│  WebSocket Server (aulinx --serve, port 8765)     │
-│  Bridges UI ↔ Agent                               │
-├──────────────────────────────────────────────────┤
-│  Agent (aulinx/agent.py)                          │
-│  Streaming LLM chat + tool call extraction        │
-│  Retry logic, error handling, audit logging       │
-├──────────────────────────────────────────────────┤
-│  Tool Registry (aulinx/tools/registry.py)         │
-│  92 tools across 23 modules                       │
-│  5-tier permission system                         │
-├──────────────────────────────────────────────────┤
-│  Ollama (local LLM server)                        │
-│  Runs gemma3:12b, qwen2.5:14b, etc.              │
-├──────────────────────────────────────────────────┤
-│  Linux Desktop (GNOME, KDE, Sway, etc.)           │
-│  Accessed via AT-SPI, D-Bus, CLI tools            │
-└──────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────────┐
+│                        User Interface                            │
+│  CLI (REPL)  │  Web Dashboard  │  Voice  │  MCP  │  Daemon      │
+├──────────────────────────────────────────────────────────────────┤
+│                      Python Agent (aulinx/)                      │
+│  Mode Detection → Tool Registry → LLM (Ollama) → Tool Execution │
+│  Three modes: core (119) │ desktop (157) │ compositor (174) tools│
+├──────────────┬───────────────────────┬───────────────────────────┤
+│ Tier 1: Core │ Tier 2: Desktop       │ Tier 3: Compositor        │
+│              │                       │                           │
+│ files, git   │ AT-SPI (pyatspi)      │ aulinx-compositor (Rust)  │
+│ process      │ window control        │ Smithay Wayland compositor │
+│ network      │ GUI element access    │ Semantic scene graph       │
+│ packages     │ screenshot (grim)     │ 23 IPC commands            │
+│ docker       │ input sim (wtype)     │ Input injection            │
+│ services     │ audio/display/theme   │ Real-time events           │
+│ system, cron │                       │ DRM/udev backend           │
+├──────────────┴───────────────────────┴───────────────────────────┤
+│                    Linux Kernel + Hardware                        │
+└──────────────────────────────────────────────────────────────────┘
 ```
 
-## Key Components
+## Python Agent
 
-### Agent (`aulinx/agent.py`)
-The core loop: receives user text → builds system prompt with context + tools → streams response from Ollama → extracts JSON tool calls → executes tools → feeds results back to LLM → repeats.
+### Core Components
 
-### Tool Registry (`aulinx/tools/registry.py`)
-Imports all tool modules, registers `Tool` objects, handles permission checking and execution. Tools are defined in `aulinx/tools/base.py` with a `Tier` enum for permission levels.
+| Component | File | Purpose |
+|-----------|------|---------|
+| **Agent** | `aulinx/agent.py` | LLM chat loop with streaming tool calling |
+| **Tool Registry** | `aulinx/tools/registry.py` | Mode-filtered tool registration + execution |
+| **Desktop Context** | `aulinx/context/desktop.py` | Gathers system state for LLM prompt |
+| **CLI** | `aulinx/cli.py` | Mode detection, argument parsing, REPL |
+| **Config** | `aulinx/config.py` | TOML config for model, permissions |
+| **Audit** | `aulinx/audit.py` | Tool call logging with timing |
+| **LLM Client** | `aulinx/llm.py` | Ollama streaming with native tool calling |
+| **WebSocket Server** | `aulinx/server.py` | Bridges React UI to agent |
+| **MCP Server** | `aulinx/mcp_server.py` | Expose tools to Claude Desktop |
+| **Doctor** | `aulinx/doctor.py` | System dependency checker |
 
-### Desktop Context (`aulinx/context/desktop.py`)
-Collects current desktop state (focused window, running apps, clipboard, system info) for the LLM system prompt. Uses AT-SPI when available, falls back to CLI tools.
+### Mode-Aware Design
 
-### WebSocket Server (`aulinx/server.py`)
-Bridges the React UI to the agent. Streams tokens, tool calls, and results as JSON events over WebSocket.
+```python
+# Auto-detects environment
+mode = detect_mode()  # → "core" | "desktop" | "compositor"
 
-### Config (`aulinx/config.py`)
-Loads `~/.config/aulinx/config.toml` with model, temperature, and permission overrides.
+# Filters tools — headless server won't see GUI tools
+registry = ToolRegistry(mode=mode)
 
-### Audit (`aulinx/audit.py`)
-Logs every tool call to `~/.local/share/aulinx/audit.jsonl` with timestamps, arguments (secrets redacted), results, and duration.
+# Mode-specific system prompt
+prompt = SYSTEM_PROMPTS[mode]  # Different instructions per tier
+```
 
-## Data Flow
+### Data Flow
 
-1. User types in UI or CLI
-2. Agent builds system prompt with desktop context + compact tool list
-3. Ollama streams response tokens
-4. Agent extracts `{"tool": "...", "args": {...}}` from response
-5. Permission check (auto-allow, confirm, or deny based on tier)
-6. Tool executes (AT-SPI, subprocess, file I/O, etc.)
-7. Result fed back to LLM for interpretation
-8. LLM may call another tool or respond with text
-9. Everything logged to audit trail
+```
+User input → Agent builds prompt (context + tools) → Ollama streams response
+→ Extract tool calls → Permission check → Execute → Feed result back → Loop
+```
+
+## Compositor (Rust)
+
+### Module Structure
+
+```
+compositor/crates/compositor/src/
+├── main.rs              Entry point, event loop
+├── state.rs             AulinxState: protocol handlers, window management
+├── config.rs            TOML configuration
+├── ipc.rs               JSON-RPC server (23 commands)
+├── semantic_bridge.rs   Window events → scene graph sync
+├── input/
+│   ├── mod.rs           Keyboard shortcuts (10 bindings)
+│   └── injection.rs     Type, click, drag, scroll, move
+└── backend/
+    ├── mod.rs            Backend abstraction
+    ├── winit.rs          Window-in-window mode
+    └── udev.rs           Bare metal (DRM/KMS/GBM)
+```
+
+### Scene Graph (aulinx-semantic)
+
+```
+compositor/crates/semantic/src/
+├── graph.rs             Tree data structure
+├── node.rs              Screen → Window → Element hierarchy
+├── query.rs             JSON-RPC query engine
+├── diff.rs              Change detection + event types
+└── sources/
+    ├── direct.rs         Compositor integration (zero-latency)
+    ├── atspi.rs          AT-SPI source (GNOME/KDE)
+    └── compositor_ipc.rs External compositor IPC (Sway/Hyprland)
+```
+
+### IPC Protocol
+
+23 JSON-RPC commands over Unix socket. See [compositor-ipc.md](compositor-ipc.md).
+
+| Category | Commands |
+|----------|----------|
+| **Scene** | windows, focused, find, graph, element_at, window_count, screenshot, diff, wait_for, status, subscribe, unsubscribe, list_commands |
+| **Input** | type, key, click, drag, scroll, move |
+| **Window** | focus, close, swap_master, spawn |
+
+### Wayland Protocols (11)
+
+XDG shell, SHM, compositor, data device, output, XDG decoration, primary selection, XDG activation, fractional scale, wlr-layer-shell, viewporter
+
+## Key Design Decisions
+
+1. **Semantic over screenshot**: AT-SPI reads the actual UI tree. No OCR, no pixel parsing.
+2. **Own compositor = ground truth**: The scene graph is always accurate because we rendered it.
+3. **Mode filtering**: Don't send 174 tool schemas to an LLM on a headless server.
+4. **JSON-RPC over Unix socket**: Simple, fast, language-agnostic.
+5. **Event-driven**: Subscribe to changes instead of polling screenshots.
+6. **Graceful degradation**: Every tool fails with a clear error, never crashes.

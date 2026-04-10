@@ -196,9 +196,23 @@ def _semantic_query(method: str, params: dict = None) -> dict | None:
 
 
 def _get_semantic_context() -> dict | None:
-    """Get desktop context from the semantic daemon."""
+    """Get desktop context from the semantic daemon or compositor."""
     try:
-        # Get focused window + all windows in one call
+        # Try scene.summary first (compositor-only, richest data — one call)
+        summary = _semantic_query("scene.summary")
+        if summary and "description" in summary:
+            return {
+                "description": summary.get("description"),
+                "ascii_layout": summary.get("ascii"),
+                "suggestions": summary.get("suggestions"),
+                "compositor": summary.get("status"),
+                "source": "compositor_summary",
+            }
+
+        # Fall back to individual queries
+        status = _semantic_query("scene.status")
+
+        # Get focused window + all windows
         focused = _semantic_query("scene.focused")
         windows = _semantic_query("scene.windows")
 
@@ -210,13 +224,26 @@ def _get_semantic_context() -> dict | None:
             "windows": [],
         }
 
+        if status:
+            ctx["compositor"] = {
+                "version": status.get("version"),
+                "uptime": status.get("uptime_seconds"),
+                "backend": status.get("backend"),
+                "window_count": status.get("window_count"),
+            }
+
         for w in (windows if isinstance(windows, list) else []):
-            ctx["windows"].append({
+            entry = {
                 "id": w.get("id"),
                 "app_id": w.get("app_id"),
                 "title": w.get("title"),
                 "focused": w.get("focused", False),
-            })
+            }
+            # Include geometry if available (compositor mode)
+            geo = w.get("geometry")
+            if geo and geo.get("width"):
+                entry["geometry"] = f"{geo['width']}x{geo['height']} at ({geo['x']},{geo['y']})"
+            ctx["windows"].append(entry)
 
         return ctx
     except Exception:

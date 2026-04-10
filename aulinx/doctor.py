@@ -11,7 +11,13 @@ console = Console()
 
 async def run_doctor(base_url: str = "http://localhost:11434"):
     """Run a full diagnostic check and print results."""
+    from aulinx.cli import detect_mode
+    mode = detect_mode()
+    mode_label = {"core": "Core (headless)", "desktop": "Desktop", "compositor": "Compositor"}[mode]
+    mode_color = {"core": "cyan", "desktop": "green", "compositor": "gold1"}[mode]
+
     console.print("\n[bold]Aulinx Doctor[/bold] — checking your system\n")
+    console.print(f"  [{mode_color}]Mode: {mode_label}[/{mode_color}]\n")
 
     table = Table(show_header=True, header_style="bold")
     table.add_column("Component", width=25)
@@ -73,6 +79,9 @@ async def run_doctor(base_url: str = "http://localhost:11434"):
     _check_binary(table, "xdg-open", "XDG open", "apt install xdg-utils")
     _check_binary(table, "xdg-mime", "XDG MIME", "apt install xdg-utils")
 
+    # Aulinx compositor
+    _check_compositor(table)
+
     # Session info
     _check_env(table, "XDG_CURRENT_DESKTOP", "Desktop environment")
     _check_env(table, "XDG_SESSION_TYPE", "Session type (wayland/x11)")
@@ -114,6 +123,36 @@ def _check_binary(table: Table, name: str, label: str, install_hint: str):
         table.add_row(label, "[green]OK[/green]", path)
     else:
         table.add_row(label, "[dim]MISS[/dim]", f"Install: {install_hint}")
+
+
+def _check_compositor(table: Table):
+    """Check if the Aulinx compositor IPC is available."""
+    import socket
+
+    sock_path = os.environ.get("AULINX_SOCKET", "")
+    if not sock_path:
+        xdg = os.environ.get("XDG_RUNTIME_DIR", "")
+        sock_path = os.path.join(xdg, "aulinx", "semantic.sock") if xdg else "/tmp/aulinx-semantic.sock"
+
+    if os.path.exists(sock_path):
+        try:
+            s = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            s.settimeout(2)
+            s.connect(sock_path)
+            import json
+            req = json.dumps({"jsonrpc": "2.0", "id": 1, "method": "scene.list_commands", "params": {}})
+            s.sendall((req + "\n").encode())
+            data = s.recv(65536).decode().strip()
+            resp = json.loads(data)
+            result = resp.get("result", {})
+            version = result.get("version", "?")
+            cmds = len(result.get("commands", []))
+            s.close()
+            table.add_row("Aulinx compositor", "[green]OK[/green]", f"v{version}, {cmds} IPC commands at {sock_path}")
+        except Exception as e:
+            table.add_row("Aulinx compositor", "[yellow]WARN[/yellow]", f"Socket exists but not responding: {e}")
+    else:
+        table.add_row("Aulinx compositor", "[dim]—[/dim]", "Not running (14 compositor_* tools disabled)")
 
 
 def _check_env(table: Table, var: str, label: str):

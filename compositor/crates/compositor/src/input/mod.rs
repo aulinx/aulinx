@@ -3,9 +3,8 @@
 pub mod injection;
 
 use smithay::backend::input::{
-    AbsolutePositionEvent, Axis, AxisSource, ButtonState, Event, InputBackend, InputEvent,
+    AbsolutePositionEvent, Axis, ButtonState, Event, InputBackend, InputEvent,
     KeyState, KeyboardKeyEvent, PointerAxisEvent, PointerButtonEvent,
-    PointerMotionAbsoluteEvent,
 };
 use smithay::desktop::WindowSurfaceType;
 use smithay::input::keyboard::FilterResult;
@@ -14,6 +13,20 @@ use smithay::reexports::wayland_server::protocol::wl_surface::WlSurface;
 use smithay::utils::SERIAL_COUNTER;
 
 use crate::state::AulinxState;
+
+/// Compositor keybinding actions.
+enum KeyAction {
+    SpawnTerminal,
+    Quit,
+    FocusNext,
+    FocusPrev,
+    CloseFocused,
+    SwapMaster,
+    FocusIndex(usize),
+    ToggleFullscreen,
+    GrowMaster,
+    ShrinkMaster,
+}
 
 impl AulinxState {
     pub fn process_input_event<B: InputBackend>(&mut self, event: InputEvent<B>) {
@@ -34,35 +47,85 @@ impl AulinxState {
 
         let keyboard = self.seat.get_keyboard().unwrap();
 
-        let action = keyboard.input::<bool, _>(
+        let action = keyboard.input::<KeyAction, _>(
             self,
             keycode,
             key_state,
             serial,
             time,
             |_state, modifiers, keysym| {
-                if key_state != KeyState::Pressed || !modifiers.logo {
+                if key_state != KeyState::Pressed {
                     return FilterResult::Forward;
                 }
+                if !modifiers.logo {
+                    return FilterResult::Forward;
+                }
+
                 let raw = keysym.modified_sym().raw();
                 match raw {
-                    0xff0d => FilterResult::Intercept(true), // Super+Return
-                    0xff1b => FilterResult::Intercept(false), // Super+Escape = quit
+                    // Super+Return: open terminal
+                    0xff0d => FilterResult::Intercept(KeyAction::SpawnTerminal),
+                    // Super+Escape: quit
+                    0xff1b => FilterResult::Intercept(KeyAction::Quit),
+                    // Super+j: focus next window
+                    0x006a => FilterResult::Intercept(KeyAction::FocusNext),
+                    // Super+k: focus previous window
+                    0x006b => FilterResult::Intercept(KeyAction::FocusPrev),
+                    // Super+q: close focused window
+                    0x0071 if modifiers.shift => FilterResult::Intercept(KeyAction::CloseFocused),
+                    // Super+Space: swap focused with master
+                    0x0020 => FilterResult::Intercept(KeyAction::SwapMaster),
+                    // Super+f: toggle fullscreen
+                    0x0066 => FilterResult::Intercept(KeyAction::ToggleFullscreen),
+                    // Super+l: grow master
+                    0x006c => FilterResult::Intercept(KeyAction::GrowMaster),
+                    // Super+h: shrink master
+                    0x0068 => FilterResult::Intercept(KeyAction::ShrinkMaster),
+                    // Super+1..9: focus window by index
+                    0x0031..=0x0039 => FilterResult::Intercept(KeyAction::FocusIndex((raw - 0x0031) as usize)),
                     _ => FilterResult::Forward,
                 }
             },
         );
 
-        if let Some(intercept) = action {
-            if intercept {
-                // Super+Return: open terminal
-                std::process::Command::new("foot")
-                    .env("WAYLAND_DISPLAY", &self.socket_name)
-                    .spawn()
-                    .ok();
-            } else {
-                // Super+Escape: quit
-                self.loop_signal.stop();
+        if let Some(action) = action {
+            match action {
+                KeyAction::SpawnTerminal => {
+                    let terminal = self.config.terminal.clone();
+                    std::process::Command::new(&terminal)
+                        .env("WAYLAND_DISPLAY", &self.socket_name)
+                        .spawn()
+                        .ok();
+                }
+                KeyAction::Quit => {
+                    self.loop_signal.stop();
+                }
+                KeyAction::FocusNext => {
+                    self.focus_next_window();
+                }
+                KeyAction::FocusPrev => {
+                    self.focus_prev_window();
+                }
+                KeyAction::CloseFocused => {
+                    let _ = self.close_window(None);
+                }
+                KeyAction::SwapMaster => {
+                    self.swap_with_master();
+                }
+                KeyAction::FocusIndex(idx) => {
+                    self.focus_window_by_index(idx);
+                }
+                KeyAction::ToggleFullscreen => {
+                    self.relayout();
+                }
+                KeyAction::GrowMaster => {
+                    self.config.layout.master_ratio = (self.config.layout.master_ratio + 0.05).min(0.8);
+                    self.relayout();
+                }
+                KeyAction::ShrinkMaster => {
+                    self.config.layout.master_ratio = (self.config.layout.master_ratio - 0.05).max(0.2);
+                    self.relayout();
+                }
             }
         }
     }

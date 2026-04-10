@@ -3,7 +3,6 @@
 use std::time::Duration;
 
 use smithay::backend::renderer::damage::OutputDamageTracker;
-use smithay::backend::renderer::element::RenderElementStates;
 use smithay::backend::renderer::glow::GlowRenderer;
 use smithay::backend::winit::{self as winit_backend, WinitEvent, WinitGraphicsBackend};
 use smithay::desktop::space::SpaceRenderElements;
@@ -125,7 +124,7 @@ fn render_frame(state: &mut AulinxState) {
             &mut target,
             0,
             &elements,
-            [0.1, 0.1, 0.15, 1.0],
+            state.config.appearance.background,
         );
     }
     winit_data.backend.submit(None).ok();

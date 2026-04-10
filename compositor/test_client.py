@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Test client for aulinx-semanticd.
+"""Test client for Aulinx compositor / semantic daemon.
 
-Connects to the semantic IPC socket and runs some queries.
+Demos all IPC features: scene queries, input injection, window management,
+and event subscriptions.
 
 Usage:
     python3 test_client.py                    # Use default socket
+    python3 test_client.py --no-inject        # Skip input injection
     AULINX_SOCKET=/tmp/test.sock python3 test_client.py
 """
 
@@ -60,8 +62,17 @@ def main():
 
     print("Connected!\n")
 
+    # 0. Status overview
+    print("=== scene.status ===")
+    resp = send_request(sock, "scene.status", request_id=0)
+    if "result" in resp:
+        s = resp["result"]
+        print(f"  Compositor v{s.get('version')} ({s.get('backend')} backend)")
+        print(f"  {s.get('window_count', 0)} windows, uptime {s.get('uptime_seconds', 0)}s")
+        print(f"  Config: gap={s.get('config', {}).get('gap')} master_ratio={s.get('config', {}).get('master_ratio'):.1f}")
+
     # 1. Get all windows
-    print("=== scene.windows ===")
+    print("\n=== scene.windows ===")
     resp = send_request(sock, "scene.windows", request_id=1)
     if "result" in resp:
         windows = resp["result"]
@@ -104,12 +115,44 @@ def main():
     else:
         print(f"Error: {resp.get('error', resp)}")
 
-    # 5. Subscribe to events
-    print("\n=== scene.subscribe('window.*') ===")
-    resp = send_request(sock, "scene.subscribe", {"filter": "window.*"}, request_id=5)
+    # 5. Input injection
+    inject = "--no-inject" not in sys.argv
+    if inject and windows:
+        print("\n=== Input Injection ===")
+
+        print("  input.type 'hello aulinx'...")
+        resp = send_request(sock, "input.type", {"text": "hello aulinx"}, request_id=10)
+        status = "ok" if resp.get("result", {}).get("ok") else resp.get("error", {}).get("message", "?")
+        print(f"  Result: {status}")
+
+        print("  input.key 'ctrl+a' (select all)...")
+        resp = send_request(sock, "input.key", {"combo": "ctrl+a"}, request_id=11)
+        status = "ok" if resp.get("result", {}).get("ok") else resp.get("error", {}).get("message", "?")
+        print(f"  Result: {status}")
+
+    # 6. Window management
+    if windows:
+        wid = windows[0].get("id", 0)
+        title = windows[0].get("title", "?")
+        print(f"\n=== Window Management (id={wid}, title={title}) ===")
+
+        print(f"  window.focus {wid}...")
+        resp = send_request(sock, "window.focus", {"window_id": wid}, request_id=20)
+        status = "ok" if resp.get("result", {}).get("ok") else resp.get("error", {}).get("message", "?")
+        print(f"  Result: {status}")
+
+        if "--close" in sys.argv:
+            print(f"  window.close {wid}...")
+            resp = send_request(sock, "window.close", {"window_id": wid}, request_id=21)
+            status = "ok" if resp.get("result", {}).get("ok") else resp.get("error", {}).get("message", "?")
+            print(f"  Result: {status}")
+
+    # 7. Subscribe to events
+    print("\n=== scene.subscribe('*') ===")
+    resp = send_request(sock, "scene.subscribe", {"filter": "*"}, request_id=5)
     if "result" in resp:
         print(f"Subscribed: {resp['result']}")
-        print("(Open/close a window to see events, or Ctrl+C to exit)")
+        print("Listening for events (open/close windows to trigger, Ctrl+C to exit)...")
 
         # Listen for events
         try:

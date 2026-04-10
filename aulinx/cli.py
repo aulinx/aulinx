@@ -1,7 +1,8 @@
-"""Aulinx CLI — interactive AI desktop agent."""
+"""Aulinx CLI — AI-native Linux agent."""
 
 import argparse
 import asyncio
+import os
 
 from prompt_toolkit import PromptSession
 from prompt_toolkit.formatted_text import HTML
@@ -12,13 +13,41 @@ from aulinx.agent import Agent
 from aulinx.completer import AulinxCompleter
 from aulinx.config import load_config
 
+
+def detect_mode() -> str:
+    """Auto-detect the operating mode based on environment.
+
+    Returns:
+        'compositor' — running inside Aulinx compositor (AULINX_COMPOSITOR=1 or IPC socket exists)
+        'desktop'    — running on a Linux desktop (WAYLAND_DISPLAY or DISPLAY set)
+        'core'       — headless / server / SSH (no display)
+    """
+    # Fast path: AULINX_COMPOSITOR env var set by compositor for child processes
+    if os.environ.get("AULINX_COMPOSITOR") == "1":
+        return "compositor"
+
+    # Check for compositor IPC socket
+    xdg = os.environ.get("XDG_RUNTIME_DIR", "")
+    compositor_socket = os.environ.get("AULINX_SOCKET", "")
+    if not compositor_socket and xdg:
+        compositor_socket = os.path.join(xdg, "aulinx", "semantic.sock")
+    if compositor_socket and os.path.exists(compositor_socket):
+        return "compositor"
+
+    # Check for display server
+    if os.environ.get("WAYLAND_DISPLAY") or os.environ.get("DISPLAY"):
+        return "desktop"
+
+    return "core"
+
 console = Console()
 
 
-def print_banner():
+def print_banner(mode: str = "desktop"):
+    mode_label = {"core": "Core", "desktop": "Desktop", "compositor": "Compositor"}[mode]
     console.print(
         f"\n[bold gold1]  Au[/bold gold1][bold white]linx[/bold white]  "
-        f"[dim]v{__version__} — The AI-native Linux desktop[/dim]\n"
+        f"[dim]v{__version__} — AI-native Linux ({mode_label} mode)[/dim]\n"
     )
     console.print("[dim]  Type a command in natural language. Ctrl+C to exit.[/dim]")
     console.print("[dim]  /history — show past sessions  /audit — show recent tool calls[/dim]\n")
@@ -73,6 +102,22 @@ def parse_args() -> argparse.Namespace:
         help="Enable voice input (requires faster-whisper, sounddevice, numpy)",
     )
     parser.add_argument(
+        "--mode",
+        choices=["auto", "core", "desktop", "compositor"],
+        default="auto",
+        help="Operating mode: core (headless), desktop (GUI), compositor (Aulinx WM). Default: auto-detect",
+    )
+    parser.add_argument(
+        "--list-tools",
+        action="store_true",
+        help="List all available tools for the detected mode",
+    )
+    parser.add_argument(
+        "--info",
+        action="store_true",
+        help="Show system capabilities and tool counts per mode",
+    )
+    parser.add_argument(
         "--doctor",
         action="store_true",
         help="Run diagnostic check on system dependencies",
@@ -85,19 +130,20 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def _build_agent(args: argparse.Namespace) -> Agent:
+def _build_agent(args: argparse.Namespace, mode: str = "desktop") -> Agent:
     config = load_config()
     return Agent(
         model=args.model or config.llm.model,
         base_url=args.base_url or config.llm.base_url,
         temperature=config.llm.temperature,
         max_history=config.context.max_history,
+        mode=mode,
     )
 
 
-async def run_interactive(agent: Agent, resume: bool = False, voice: bool = False):
+async def run_interactive(agent: Agent, resume: bool = False, voice: bool = False, mode: str = "desktop"):
     """Run the interactive REPL."""
-    print_banner()
+    print_banner(mode)
     await agent.initialize()
 
     # Initialize voice if requested
@@ -185,7 +231,8 @@ async def _handle_slash_command(text: str, agent: Agent, voice_input=None):
         console.print("[dim]Conversation cleared.[/dim]\n")
 
     elif cmd == "/tools":
-        console.print(f"\n[bold]{len(agent.tools)} tools available:[/bold]\n")
+        mode_label = {"core": "Core", "desktop": "Desktop", "compositor": "Compositor"}.get(agent.mode, "?")
+        console.print(f"\n[bold]{len(agent.tools)} tools available ({mode_label} mode):[/bold]\n")
         console.print(agent.tools.describe())
         console.print()
 
@@ -207,11 +254,15 @@ async def _handle_slash_command(text: str, agent: Agent, voice_input=None):
             console.print("[yellow]Voice not available. Start with: aulinx --voice[/yellow]\n")
             console.print("[dim]Install: pip install faster-whisper sounddevice numpy[/dim]\n")
 
+    elif cmd == "/info":
+        _show_info()
+
     elif cmd == "/help":
         console.print("""
 [bold]Commands:[/bold]
   /tools    — List all available tools
   /context  — Show current desktop context
+  /info     — Show system capabilities and mode
   /history  — Show past conversation sessions
   /audit    — Show recent tool calls
   /doctor   — Check system dependencies
@@ -223,8 +274,70 @@ async def _handle_slash_command(text: str, agent: Agent, voice_input=None):
         console.print(f"[dim]Unknown command: {cmd}. Type /help for options.[/dim]\n")
 
 
+def _show_info():
+    """Show a beautiful summary of Aulinx capabilities."""
+    from aulinx.tools.registry import ToolRegistry
+
+    mode = detect_mode()
+    mode_names = {"core": "Core (headless)", "desktop": "Desktop", "compositor": "Compositor"}
+
+    console.print(f"\n[bold gold1]  Au[/bold gold1][bold white]linx[/bold white]  [dim]v{__version__}[/dim]\n")
+    console.print(f"  [bold]AI-native Linux. Desktop to server.[/bold]")
+    console.print(f"  Other AI agents look at your screen. Aulinx IS the screen.\n")
+
+    # Mode detection
+    colors = {"core": "cyan", "desktop": "green", "compositor": "gold1"}
+    console.print(f"  [{colors[mode]}]Detected mode: {mode_names[mode]}[/{colors[mode]}]\n")
+
+    # Tool counts per tier
+    from rich.table import Table
+    table = Table(show_header=True, header_style="bold", padding=(0, 2))
+    table.add_column("Tier", width=15)
+    table.add_column("Tools", width=8, justify="right")
+    table.add_column("Native", width=8, justify="right")
+    table.add_column("Capabilities", width=50)
+
+    for m, desc in [
+        ("core", "Files, git, process, network, docker, packages, services, system"),
+        ("desktop", "+ AT-SPI GUI control, screenshots, audio, display, input sim"),
+        ("compositor", "+ Wayland compositor IPC, input injection, scene graph, events"),
+    ]:
+        r = ToolRegistry(mode=m)
+        native = len(r.to_ollama_tools(core_only=True))
+        marker = " [bold]<-- you are here[/bold]" if m == mode else ""
+        table.add_row(
+            f"[{colors[m]}]{m.capitalize()}[/{colors[m]}]",
+            str(len(r)),
+            str(native),
+            desc + marker,
+        )
+
+    console.print(table)
+
+    # Compositor IPC
+    console.print(f"\n  [bold]Compositor IPC:[/bold] 34 commands over Unix socket")
+    console.print(f"  [bold]Keyboard shortcuts:[/bold] 12 (Super+Return/Esc/J/K/H/L/Q/Space/F/1-9)")
+    console.print(f"  [bold]Wayland protocols:[/bold] 11")
+    console.print(f"\n  [dim]Run 'aulinx --doctor' for detailed dependency check[/dim]")
+    console.print(f"  [dim]Run 'aulinx --mode core' to force headless mode[/dim]\n")
+
+
 def main():
     args = parse_args()
+
+    if args.list_tools:
+        mode = args.mode if args.mode != "auto" else detect_mode()
+        from aulinx.tools.registry import ToolRegistry
+        registry = ToolRegistry(mode=mode)
+        mode_label = {"core": "Core", "desktop": "Desktop", "compositor": "Compositor"}[mode]
+        console.print(f"\n[bold]{len(registry)} tools ({mode_label} mode):[/bold]\n")
+        console.print(registry.describe())
+        console.print()
+        return
+
+    if args.info:
+        _show_info()
+        return
 
     if args.doctor:
         from aulinx.doctor import run_doctor
@@ -251,12 +364,13 @@ def main():
         ))
         return
 
-    agent = _build_agent(args)
+    mode = args.mode if args.mode != "auto" else detect_mode()
+    agent = _build_agent(args, mode=mode)
 
     if args.command:
         asyncio.run(run_command(agent, args.command))
     else:
-        asyncio.run(run_interactive(agent, resume=args.resume, voice=args.voice))
+        asyncio.run(run_interactive(agent, resume=args.resume, voice=args.voice, mode=mode))
 
 
 if __name__ == "__main__":

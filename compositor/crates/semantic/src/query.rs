@@ -75,10 +75,34 @@ pub fn execute_query(graph: &SceneGraph, method: &str, params: &Value) -> Result
 
         "scene.focused" => {
             let (window_id, element_id) = graph.focused();
+            let window_data = window_id.and_then(|id| graph.window_to_json(id));
             Ok(serde_json::json!({
                 "window_id": window_id,
                 "element_id": element_id,
+                "window": window_data,
             }))
+        }
+
+        "scene.window_count" => {
+            Ok(serde_json::json!({"count": graph.windows().len()}))
+        }
+
+        "scene.find_window" => {
+            let title = params.get("title").and_then(|v| v.as_str()).unwrap_or("");
+            let app_id = params.get("app_id").and_then(|v| v.as_str()).unwrap_or("");
+            let matches: Vec<Value> = graph
+                .windows()
+                .iter()
+                .filter_map(|w| {
+                    let val = serde_json::to_value(w).ok()?;
+                    let w_title = val.get("title").and_then(|v| v.as_str()).unwrap_or("");
+                    let w_app = val.get("app_id").and_then(|v| v.as_str()).unwrap_or("");
+                    let title_match = title.is_empty() || w_title.to_lowercase().contains(&title.to_lowercase());
+                    let app_match = app_id.is_empty() || w_app.to_lowercase().contains(&app_id.to_lowercase());
+                    if title_match && app_match { Some(val) } else { None }
+                })
+                .collect();
+            Ok(Value::Array(matches))
         }
 
         _ => Err(format!("unknown query method: {}", method)),

@@ -1,17 +1,20 @@
 //! Backend abstraction.
 
+pub mod udev;
 pub mod winit;
+
+use smithay::backend::session::Session;
 
 pub enum BackendData {
     Winit(winit::WinitData),
-    None,
+    Udev(udev::UdevData),
 }
 
 impl BackendData {
     pub fn seat_name(&self) -> String {
         match self {
             BackendData::Winit(_) => "winit".to_string(),
-            BackendData::None => "seat0".to_string(),
+            BackendData::Udev(data) => data.session.seat(),
         }
     }
 }

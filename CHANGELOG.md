@@ -4,6 +4,49 @@ All notable changes to Aulinx will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] - 2026-04-10
+
+### Added
+- **Compositor IPC** — 20 JSON-RPC commands over Unix socket for AI agent control
+  - Scene queries: `scene.windows`, `scene.focused`, `scene.find`, `scene.graph`, `scene.element_at`, `scene.window_count`, `scene.screenshot`, `scene.list_commands`
+  - Input injection: `input.type` (with shift for uppercase), `input.key`, `input.click`, `input.scroll`, `input.move`, `input.drag`
+  - Window management: `window.focus`, `window.close`, `window.swap_master`, `window.spawn`
+  - Event subscriptions: `scene.subscribe`, `scene.unsubscribe` with real-time push
+- **DRM/udev backend** — compositor can run on bare metal (not just inside GNOME)
+- **Master+stack tiling** — dwm-style layout with configurable gaps and master ratio
+- **10 keyboard shortcuts** — Super+Return/Escape/J/K/Shift+Q/Space/F/1-9
+- **11 Wayland protocols** — XDG shell, decorations (SSDs), primary selection, XDG activation, layer shell, fractional scale, viewporter
+- **Compositor config** (`~/.config/aulinx/compositor.toml`) — gaps, master ratio, background color, terminal
+- **Scene graph events** — window open/close/focus pushed to IPC subscribers
+- **Python client library** (`aulinx_compositor.py`) — clean API for all 20 IPC commands
+- **14 compositor tools** for the Python agent — `compositor_windows`, `compositor_click`, `compositor_type`, `compositor_screenshot`, `compositor_spawn`, etc.
+- **IPC protocol docs** (`docs/compositor-ipc.md`) — full reference for all commands
+- **Demo script** (`compositor/demo.sh`) — launches compositor + terminals + runs IPC demo
+- **`--mode core|desktop|compositor`** — auto-detects environment, filters tools for LLM
+- **Mode-aware system prompts** — different LLM instructions for headless vs desktop vs compositor
+- **Mode-aware CORE_TOOLS** — native tool calling set adapts per tier (32/53/65 tools)
+- **`--info` command** — shows capabilities, tool counts, and detected mode
+- **8 server tools** — `journal_logs`, `docker_ps`, `docker_logs`, `port_list`, `firewall_status`, `cron_list`, `disk_health`, `system_logs_summary`
+- **19 compositor tools** (was 14) — added `compositor_status`, `compositor_diff`, `compositor_wait_for`, `compositor_find_window`, `compositor_run_and_type`
+- **`scene.diff` IPC** — get changes since last query (efficient agent loops)
+- **`scene.wait_for` IPC** — check if a condition is met (window exists, count reached)
+- **`scene.status` IPC** — full compositor overview (version, uptime, config)
+- **`scene.find_window` IPC** — search windows by title/app_id
+- **Doctor check** — shows detected tier, checks compositor IPC connectivity
+- **29 new tests** — mode filtering, smoke tests, system prompt tests
+- **CI for compositor** — GitHub Actions builds Rust compositor
+- **Architecture docs** — full system diagram with three-tier architecture
+- **README rewrite** — "AI-native Linux. Desktop to server." positioning
+
+### Changed
+- Tool count: 103 → 186 (29 compositor + 8 server + other additions)
+- IPC commands: 7 → 34
+- Keyboard shortcuts: 2 → 12
+- Tests: 114 → 180 (149 unit + 31 integration)
+- Window title/app_id now read from real XDG toplevel state (was hardcoded)
+- Tiling layout: equal-split → master+stack with configurable gaps
+- Cleaned up all Rust compiler warnings (zero warnings)
+
 ## [0.3.0] - 2026-04-08
 
 ### Added

@@ -1,0 +1,22 @@
+# Aulinx Compositor Configuration
+# Copy to ~/.config/aulinx/compositor.toml
+
+# Terminal to launch with Super+Return
+terminal = "foot"
+
+[layout]
+# Gap between tiled windows (pixels)
+gap = 4
+# Gap at screen edges (pixels)
+outer_gap = 4
+# Master window width ratio (0.0-1.0)
+master_ratio = 0.6
+
+[appearance]
+# Background color [r, g, b, a] (0.0-1.0)
+# Dark blue-gray (default)
+background = [0.08, 0.08, 0.12, 1.0]
+# Pure black:
+# background = [0.0, 0.0, 0.0, 1.0]
+# Nord theme:
+# background = [0.18, 0.20, 0.25, 1.0]

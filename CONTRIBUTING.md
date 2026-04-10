@@ -17,16 +17,29 @@ npm install
 npm run dev
 ```
 
+For the compositor (Rust):
+```bash
+cd compositor
+cargo build
+```
+
 ## Running Tests
 
 ```bash
+# Python agent
 make test     # run all tests
 make lint     # check code style
+
+# Rust compositor
+cd compositor
+cargo build -p aulinx-compositor
+cargo test
 ```
 
 ## Code Style
 
 - **Python**: We use [ruff](https://docs.astral.sh/ruff/) for linting and formatting. Line length: 100 chars.
+- **Rust**: Standard `rustfmt`. Zero compiler warnings policy.
 - **TypeScript**: ESLint is configured in `ui/`.
 - All tool functions must be `async` and return JSON-serializable data.
 - Use type hints for all function signatures.
@@ -65,6 +78,53 @@ See `docs/adding-tools.md` for a complete guide.
 | `MUTATE` | Creates/modifies data (write files, launch apps) |
 | `DESTRUCTIVE` | Hard to reverse (kill process, trash files) |
 | `IRREVERSIBLE` | Cannot be undone (permanent delete, shutdown) |
+
+## Compositor Development
+
+The Aulinx compositor (`compositor/`) is a Wayland compositor written in Rust using [Smithay](https://github.com/Smithay/smithay).
+
+### Architecture
+
+```
+compositor/crates/
+├── semantic/     # Scene graph, AT-SPI source, query engine
+├── daemon/       # Standalone daemon (aulinx-semanticd)
+└── compositor/   # Wayland compositor
+    └── src/
+        ├── main.rs            # Entry point, event loop
+        ├── state.rs           # AulinxState, protocol handlers
+        ├── config.rs          # TOML configuration
+        ├── ipc.rs             # JSON-RPC IPC server
+        ├── semantic_bridge.rs # Compositor → scene graph sync
+        ├── input/
+        │   ├── mod.rs         # Keyboard/pointer event handling
+        │   └── injection.rs   # AI input injection (type, click, drag)
+        └── backend/
+            ├── winit.rs       # Runs inside existing desktop
+            └── udev.rs        # Runs on bare metal (DRM/KMS)
+```
+
+### Adding an IPC command
+
+1. Add a variant to `CompositorCmd` in `ipc.rs`
+2. Parse the JSON-RPC method in the `handle()` match block
+3. Wire it in `main.rs` event loop
+4. Implement the handler in `state.rs` or `input/injection.rs`
+5. Add to `scene.list_commands` response
+6. Document in `docs/compositor-ipc.md`
+
+### Testing the compositor
+
+```bash
+# Run inside existing Wayland desktop (winit backend)
+WAYLAND_DISPLAY=wayland-0 cargo run -p aulinx-compositor
+
+# Connect test client
+python3 test_client.py
+
+# Run IPC demo
+./demo.sh --ipc-only
+```
 
 ## Pull Request Process
 
