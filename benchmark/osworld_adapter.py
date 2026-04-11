@@ -36,7 +36,7 @@ class AulinxAgent:
         max_trajectory_length: int = 10,
         observation_type: str = "a11y_tree",
         action_space: str = "computer_13",
-        max_retries: int = 3,
+        max_retries: int = 6,
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
@@ -123,11 +123,13 @@ class AulinxAgent:
                 else:
                     raise ValueError(f"Unknown api_type: {self.api_type}")
             except Exception as e:
-                logger.warning("LLM call attempt %d failed: %s", attempt + 1, e)
+                logger.warning("LLM call attempt %d/%d failed: %s", attempt + 1, self.max_retries, e)
                 if attempt < self.max_retries - 1:
-                    time.sleep(2 ** attempt)
+                    wait = min(3 * (2 ** attempt), 30)  # 3, 6, 12, 24, 30s
+                    logger.info("Retrying in %ds...", wait)
+                    time.sleep(wait)
                 else:
-                    logger.error("All LLM call attempts failed")
+                    logger.error("All %d LLM call attempts failed", self.max_retries)
                     return "action: wait()\nthought: LLM call failed, waiting"
 
     def _call_ollama(self, messages: list[dict]) -> str:
@@ -161,8 +163,12 @@ class AulinxAgent:
         if api_key:
             headers["Authorization"] = f"Bearer {api_key}"
 
+        # Avoid double /v1 if base_url already ends with it
+        base = self.base_url.rstrip("/")
+        url = f"{base}/chat/completions" if base.endswith("/v1") else f"{base}/v1/chat/completions"
+
         resp = httpx.post(
-            f"{self.base_url}/v1/chat/completions",
+            url,
             headers=headers,
             json={
                 "model": self.model,
@@ -179,7 +185,10 @@ class AulinxAgent:
         self.total_tokens_in += usage.get("prompt_tokens", 0)
         self.total_tokens_out += usage.get("completion_tokens", 0)
 
-        return data["choices"][0]["message"]["content"]
+        content = data.get("choices", [{}])[0].get("message", {}).get("content")
+        if not content:
+            raise ValueError("API returned empty content")
+        return content
 
     def _call_anthropic(self, messages: list[dict]) -> str:
         """Call Anthropic's Messages API."""
@@ -250,7 +259,10 @@ class AulinxAgent:
         self.total_tokens_in += usage.get("prompt_tokens", 0)
         self.total_tokens_out += usage.get("completion_tokens", 0)
 
-        return data["choices"][0]["message"]["content"]
+        content = data.get("choices", [{}])[0].get("message", {}).get("content")
+        if not content:
+            raise ValueError("Gemini returned empty content (possible safety filter)")
+        return content
 
     @staticmethod
     def _get_env(key: str, default: str = "") -> str:

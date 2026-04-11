@@ -75,7 +75,7 @@ Do NOT output multiple actions. Do NOT output anything else.
 """
 
 
-def parse_a11y_tree(xml_str: str, max_elements: int = 80) -> str:
+def parse_a11y_tree(xml_str: str, max_elements: int = 50) -> str:
     """Parse OSWorld's a11y XML into a compact text representation.
 
     Returns a numbered list of interactive elements with their roles,

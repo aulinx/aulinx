@@ -486,6 +486,15 @@ def _print_summary(summary: dict):
 def main():
     import os
 
+    # Load .env file if it exists
+    env_file = Path(__file__).resolve().parent.parent / ".env"
+    if env_file.exists():
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                key, _, value = line.partition("=")
+                os.environ.setdefault(key.strip(), value.strip())
+
     args = parse_args()
 
     # Add vmrun to PATH if needed
