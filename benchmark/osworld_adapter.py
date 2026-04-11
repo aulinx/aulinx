@@ -84,11 +84,13 @@ class AulinxAgent:
         # Parse response into action
         thought, action = parse_response(response_text)
 
-        # Record history for multi-step reasoning
-        obs_summary = f"Task: {instruction}\n[Step {len(self.history) + 1}]"
+        # Record history — include action taken and key UI state
+        from .prompt_builder import parse_a11y_tree
+        parsed_tree = parse_a11y_tree(a11y_tree, max_elements=15)
+        obs_summary = f"[Step {len(self.history) + 1}] Screen state:\n{parsed_tree}"
         self.history.append({
             "observation": obs_summary,
-            "response": response_text,
+            "response": response_text.split("\n")[0],  # Keep compact — first line only
         })
 
         # Trim history to fit context
