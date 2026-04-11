@@ -24,10 +24,11 @@ def parse_response(response: str) -> tuple[str, dict | str]:
 
     for line in response.strip().splitlines():
         line = line.strip()
-        if line.lower().startswith("thought:"):
+        if line.lower().startswith("thought:") and not thought:
             thought = line[len("thought:"):].strip()
-        elif line.lower().startswith("action:"):
+        elif line.lower().startswith("action:") and not action_str:
             action_str = line[len("action:"):].strip()
+            break  # Take the first action only
 
     if not action_str:
         # Try to find action anywhere in the response
