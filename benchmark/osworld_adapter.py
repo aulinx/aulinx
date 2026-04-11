@@ -57,6 +57,7 @@ class AulinxAgent:
     def reset(self, runtime_logger=None, **kwargs):
         """Reset agent state between tasks."""
         self.history = []
+        self._step_count = 0
         if runtime_logger:
             logger.handlers = runtime_logger.handlers
 
@@ -85,9 +86,12 @@ class AulinxAgent:
         thought, action = parse_response(response_text)
 
         # Record history — include action taken and key UI state
+        # Track step count independently of history trimming
+        self._step_count = getattr(self, '_step_count', 0) + 1
+
         from .prompt_builder import parse_a11y_tree
         parsed_tree = parse_a11y_tree(a11y_tree, max_elements=15)
-        obs_summary = f"[Step {len(self.history) + 1}] Screen state:\n{parsed_tree}"
+        obs_summary = f"[Step {self._step_count}] Screen state:\n{parsed_tree}"
         self.history.append({
             "observation": obs_summary,
             "response": response_text.split("\n")[0],  # Keep compact — first line only
@@ -97,7 +101,7 @@ class AulinxAgent:
         if len(self.history) > self.max_trajectory_length:
             self.history = self.history[-self.max_trajectory_length:]
 
-        logger.info("Step %d — thought: %s", len(self.history), thought)
+        logger.info("Step %d — thought: %s", self._step_count, thought)
         logger.info("Action: %s", action)
 
         # OSWorld expects a list of actions
@@ -114,6 +118,8 @@ class AulinxAgent:
                     return self._call_openai(messages)
                 elif self.api_type == "anthropic":
                     return self._call_anthropic(messages)
+                elif self.api_type == "gemini":
+                    return self._call_gemini(messages)
                 else:
                     raise ValueError(f"Unknown api_type: {self.api_type}")
             except Exception as e:
@@ -213,6 +219,38 @@ class AulinxAgent:
         self.total_tokens_out += usage.get("output_tokens", 0)
 
         return data["content"][0]["text"]
+
+    def _call_gemini(self, messages: list[dict]) -> str:
+        """Call Google Gemini API via the OpenAI-compatible endpoint."""
+        import os
+        api_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
+
+        # Gemini supports OpenAI-compatible chat completions
+        base = self.base_url if self.base_url != "http://localhost:11434" \
+            else "https://generativelanguage.googleapis.com/v1beta/openai"
+
+        resp = httpx.post(
+            f"{base}/chat/completions",
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json={
+                "model": self.model,
+                "messages": messages,
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+            },
+            timeout=120,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        usage = data.get("usage", {})
+        self.total_tokens_in += usage.get("prompt_tokens", 0)
+        self.total_tokens_out += usage.get("completion_tokens", 0)
+
+        return data["choices"][0]["message"]["content"]
 
     @staticmethod
     def _get_env(key: str, default: str = "") -> str:

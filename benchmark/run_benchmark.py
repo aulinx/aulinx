@@ -46,6 +46,8 @@ def parse_args():
                    help="VM provider for OSWorld")
     p.add_argument("--domain", type=str, default=None,
                    help="Specific domain to test (e.g. libreoffice_calc)")
+    p.add_argument("--vmware-path", type=str, default=None,
+                   help="Path to VMware Workstation directory (for vmrun)")
 
     # Agent config
     p.add_argument("--model", type=str, default="qwen2.5:14b",
@@ -53,7 +55,7 @@ def parse_args():
     p.add_argument("--base-url", type=str, default="http://localhost:11434",
                    help="LLM API base URL")
     p.add_argument("--api-type", type=str, default="ollama",
-                   choices=["ollama", "openai", "anthropic"],
+                   choices=["ollama", "openai", "anthropic", "gemini"],
                    help="LLM API type")
     p.add_argument("--temperature", type=float, default=0.3)
     p.add_argument("--max-tokens", type=int, default=1024)
@@ -152,22 +154,18 @@ def dry_run():
 
 
 def run_benchmark(args):
-    """Run the full OSWorld benchmark."""
+    """Run the full OSWorld benchmark.
+
+    Uses direct HTTP communication with the OSWorld VM server instead of
+    the heavy DesktopEnv class, avoiding PyTorch/transformers dependencies.
+    For snapshot management, uses vmrun directly.
+    """
+
     osworld_path = Path(args.osworld_path).resolve()
 
     if not osworld_path.exists():
         logger.error("OSWorld not found at %s", osworld_path)
         logger.error("Clone it: git clone https://github.com/xlang-ai/OSWorld.git %s", osworld_path)
-        sys.exit(1)
-
-    # Add OSWorld to path
-    sys.path.insert(0, str(osworld_path))
-
-    # Import OSWorld components
-    try:
-        from desktop_env.desktop_env import DesktopEnv
-    except ImportError:
-        logger.error("Cannot import OSWorld. Install it: cd %s && pip install -e .", osworld_path)
         sys.exit(1)
 
     from .osworld_adapter import AulinxAgent
@@ -181,8 +179,19 @@ def run_benchmark(args):
         temperature=args.temperature,
     )
 
+    # Discover VM
+    vmx_path = _find_vmx(osworld_path)
+    vm_ip = _get_vm_ip(vmx_path)
+    logger.info("VM at %s (IP: %s)", vmx_path, vm_ip)
+
+    # Wait for VM HTTP server
+    _wait_for_vm(vm_ip)
+
     # Load task examples
-    examples_dir = osworld_path / "evaluation_examples"
+    examples_dir = osworld_path / "evaluation_examples" / "examples"
+    if not examples_dir.exists():
+        # Fallback to flat structure
+        examples_dir = osworld_path / "evaluation_examples"
     if not examples_dir.exists():
         logger.error("evaluation_examples not found in %s", osworld_path)
         sys.exit(1)
@@ -199,14 +208,6 @@ def run_benchmark(args):
     results = []
     start_time = time.time()
 
-    # Initialize environment
-    env = DesktopEnv(
-        provider_name=args.provider,
-        action_space=agent.action_space,
-        require_a11y_tree=True,
-        require_terminal=False,
-    )
-
     for i, (task_id, task) in enumerate(tasks.items()):
         task_result_dir = result_dir / task.get("domain", "unknown") / task_id
         task_result_dir.mkdir(parents=True, exist_ok=True)
@@ -220,60 +221,75 @@ def run_benchmark(args):
         instruction = task.get("instruction", "")
 
         try:
-            # Reset environment and agent
-            env.reset(task_config=task)
+            # Revert VM to clean snapshot
+            _revert_vm(vmx_path)
+            vm_ip = _get_vm_ip(vmx_path)
+            _wait_for_vm(vm_ip)
             agent.reset()
-            time.sleep(5)
+            time.sleep(3)
 
-            obs = env._get_obs()
             done = False
             step_idx = 0
             task_start = time.time()
 
             while not done and step_idx < args.max_steps:
+                # Get observation
+                obs = _get_obs(vm_ip)
+
                 response, actions = agent.predict(instruction, obs)
+                action = actions[0]
 
-                for action in actions:
-                    logger.info("  Step %d: %s", step_idx + 1, action)
-                    obs, reward, done, info = env.step(action, args.sleep_after_execution)
+                logger.info("  Step %d: %s", step_idx + 1, action)
 
-                    # Save trajectory
+                # Check terminal actions
+                if isinstance(action, str):
+                    if action == "DONE":
+                        done = True
+                    elif action == "FAIL":
+                        done = True
+                    elif action == "WAIT":
+                        time.sleep(2)
+                    # Save and continue
                     with open(task_result_dir / "traj.jsonl", "a") as f:
                         f.write(json.dumps({
                             "step": step_idx + 1,
-                            "action": action if isinstance(action, str) else action,
+                            "action": action,
                             "response": response,
-                            "reward": reward,
-                            "done": done,
                         }, default=str) + "\n")
+                    step_idx += 1
+                    continue
 
-                    if done:
-                        break
+                # Execute action on VM
+                _execute_action(vm_ip, action)
+                time.sleep(args.sleep_after_execution)
+
+                # Save trajectory
+                with open(task_result_dir / "traj.jsonl", "a") as f:
+                    f.write(json.dumps({
+                        "step": step_idx + 1,
+                        "action": action,
+                        "response": response,
+                    }, default=str) + "\n")
+
                 step_idx += 1
 
-            # Evaluate
-            time.sleep(5)
-            score = env.evaluate()
             task_time = time.time() - task_start
             token_stats = agent.get_token_stats()
 
             result = {
                 "task_id": task_id,
                 "domain": task.get("domain", "unknown"),
-                "score": score,
                 "steps": step_idx,
                 "time_s": round(task_time, 1),
                 "tokens_in": token_stats["total_input_tokens"],
                 "tokens_out": token_stats["total_output_tokens"],
                 "llm_calls": token_stats["total_calls"],
+                "completed": done,
             }
             results.append(result)
 
-            with open(task_result_dir / "result.txt", "w") as f:
-                f.write(f"{score}\n")
-
-            logger.info("  Score: %.2f | Steps: %d | Time: %.1fs | Tokens: %d in + %d out",
-                        score, step_idx, task_time,
+            logger.info("  Steps: %d | Time: %.1fs | Tokens: %d in + %d out",
+                        step_idx, task_time,
                         token_stats["total_input_tokens"],
                         token_stats["total_output_tokens"])
 
@@ -289,6 +305,122 @@ def run_benchmark(args):
         json.dump({"summary": summary, "tasks": results}, f, indent=2)
 
     _print_summary(summary)
+
+
+def _find_vmx(osworld_path: Path) -> str:
+    """Find the OSWorld VM's .vmx file."""
+    vm_data = osworld_path / "vmware_vm_data"
+    if not vm_data.exists():
+        raise FileNotFoundError(f"No vmware_vm_data directory in {osworld_path}")
+    for vmx in vm_data.rglob("*.vmx"):
+        return str(vmx)
+    raise FileNotFoundError(f"No .vmx file found in {vm_data}")
+
+
+def _get_vm_ip(vmx_path: str) -> str:
+    """Get the VM's IP address via vmrun."""
+    import subprocess
+    result = subprocess.run(
+        ["vmrun", "-T", "ws", "getGuestIPAddress", vmx_path, "-wait"],
+        capture_output=True, text=True, timeout=60,
+    )
+    ip = result.stdout.strip()
+    if not ip or result.returncode != 0:
+        raise RuntimeError(f"Could not get VM IP: {result.stderr}")
+    return ip
+
+
+def _revert_vm(vmx_path: str):
+    """Revert VM to init_state snapshot and restart."""
+    import subprocess
+    logger.info("Reverting VM to init_state...")
+    subprocess.run(
+        ["vmrun", "-T", "ws", "revertToSnapshot", vmx_path, "init_state"],
+        capture_output=True, timeout=60,
+    )
+    time.sleep(2)
+    subprocess.run(
+        ["vmrun", "-T", "ws", "start", vmx_path, "nogui"],
+        capture_output=True, timeout=60,
+    )
+    time.sleep(10)
+
+
+def _wait_for_vm(vm_ip: str, timeout: int = 120):
+    """Wait for the VM's HTTP server to become available."""
+    import httpx
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        try:
+            r = httpx.get(f"http://{vm_ip}:5000/screenshot", timeout=5)
+            if r.status_code == 200:
+                logger.info("VM HTTP server ready at %s", vm_ip)
+                return
+        except Exception:
+            pass
+        time.sleep(3)
+    raise TimeoutError(f"VM at {vm_ip} did not become ready within {timeout}s")
+
+
+def _get_obs(vm_ip: str) -> dict:
+    """Get observation from the VM via HTTP."""
+    import httpx
+    screenshot = httpx.get(f"http://{vm_ip}:5000/screenshot", timeout=15).content
+    try:
+        tree_resp = httpx.get(f"http://{vm_ip}:5000/accessibility", timeout=15)
+        a11y_tree = tree_resp.json().get("AT", "")
+    except Exception:
+        a11y_tree = ""
+    return {
+        "screenshot": screenshot,
+        "accessibility_tree": a11y_tree,
+        "terminal": None,
+    }
+
+
+def _execute_action(vm_ip: str, action: dict):
+    """Execute a computer_13 action on the VM via pyautogui."""
+    import httpx
+    action_type = action.get("action_type", "")
+
+    cmd = ""
+    if action_type == "CLICK":
+        x, y = action["coordinate"]
+        cmd = f"import pyautogui; pyautogui.click({x}, {y})"
+    elif action_type == "DOUBLE_CLICK":
+        x, y = action["coordinate"]
+        cmd = f"import pyautogui; pyautogui.doubleClick({x}, {y})"
+    elif action_type == "RIGHT_CLICK":
+        x, y = action["coordinate"]
+        cmd = f"import pyautogui; pyautogui.rightClick({x}, {y})"
+    elif action_type == "TYPING":
+        text = action["text"].replace("\\", "\\\\").replace("'", "\\'")
+        cmd = f"import pyautogui; pyautogui.typewrite('{text}', interval=0.02)"
+    elif action_type == "PRESS":
+        cmd = f"import pyautogui; pyautogui.press('{action['key']}')"
+    elif action_type == "HOTKEY":
+        keys = ", ".join(f"'{k}'" for k in action["key"])
+        cmd = f"import pyautogui; pyautogui.hotkey({keys})"
+    elif action_type == "SCROLL":
+        x, y = action.get("coordinate", [960, 540])
+        dy = action.get("dy", -3)
+        cmd = f"import pyautogui; pyautogui.scroll({dy}, {x}, {y})"
+    elif action_type == "DRAG_TO":
+        sx, sy = action["startCoordinate"]
+        ex, ey = action["endCoordinate"]
+        cmd = f"import pyautogui; pyautogui.moveTo({sx},{sy}); pyautogui.drag({ex-sx},{ey-sy}, duration=0.5)"
+    else:
+        logger.warning("Unknown action type: %s", action_type)
+        return
+
+    try:
+        httpx.post(
+            f"http://{vm_ip}:5000/execute",
+            json={"command": ["python3", "-c", cmd]},
+            timeout=15,
+        )
+    except Exception as e:
+        logger.warning("Action execution error: %s", e)
 
 
 def _load_tasks(examples_dir: Path, domain: str | None) -> dict:
@@ -310,7 +442,7 @@ def _load_tasks(examples_dir: Path, domain: str | None) -> dict:
 def _compute_summary(results: list[dict], total_time: float) -> dict:
     """Compute aggregate metrics from task results."""
     scored = [r for r in results if "error" not in r]
-    passed = [r for r in scored if r["score"] > 0]
+    passed = [r for r in scored if r.get("completed")]
 
     total_tokens = sum(r.get("tokens_in", 0) + r.get("tokens_out", 0) for r in scored)
     total_calls = sum(r.get("llm_calls", 0) for r in scored)
@@ -352,7 +484,22 @@ def _print_summary(summary: dict):
 
 
 def main():
+    import os
+
     args = parse_args()
+
+    # Add vmrun to PATH if needed
+    vmware_dirs = [
+        args.vmware_path,
+        r"D:\Tools\VMware\VMware Workstation",
+        r"C:\Program Files (x86)\VMware\VMware Workstation",
+        r"C:\Program Files\VMware\VMware Workstation",
+    ]
+    for d in vmware_dirs:
+        if d and os.path.exists(d):
+            os.environ["PATH"] += os.pathsep + d
+            break
+
     if args.dry_run:
         dry_run()
     else:
