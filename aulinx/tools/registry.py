@@ -7,7 +7,6 @@ from typing import Any
 # Re-export from base to maintain backwards compatibility
 from aulinx.tools.base import Tier, Tool  # noqa: F401
 
-
     # Tools that require a GUI desktop (AT-SPI, screenshots, display control)
 DESKTOP_ONLY_MODULES = {
     "window", "atspi_tools", "display", "audio", "bluetooth", "theme",
@@ -41,11 +40,11 @@ class ToolRegistry:
             apps,
             archive,
             atspi_tools,
-            compositor_tools,
             audio,
             bluetooth,
             calc,
             clipboard,
+            compositor_tools,
             datetime_tools,
             dbus_tools,
             desktop_utils,

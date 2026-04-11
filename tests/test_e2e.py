@@ -50,7 +50,7 @@ class TestToolExecution:
             if isinstance(result, dict) and "error" in result:
                 # Acceptable errors: missing tools (pyatspi, etc)
                 err = str(result["error"]).lower()
-                assert any(ok in err for ok in ["not available", "not found", "no such file"]), \
+                assert any(ok in err for ok in ["not available", "not found", "no such file", "no clipboard"]), \
                     f"{tool_name} failed: {result}"
 
     @pytest.mark.asyncio

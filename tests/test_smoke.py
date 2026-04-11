@@ -1,8 +1,7 @@
 """Smoke tests — verify core components initialize without crashing."""
 
-import pytest
-from aulinx.tools.registry import ToolRegistry
 from aulinx.cli import detect_mode
+from aulinx.tools.registry import ToolRegistry
 
 
 class TestSmoke:
@@ -27,7 +26,7 @@ class TestSmoke:
 
     def test_agent_imports(self):
         """Agent module should import without errors."""
-        from aulinx.agent import Agent, SYSTEM_PROMPTS
+        from aulinx.agent import SYSTEM_PROMPTS, Agent
         assert Agent is not None
         assert len(SYSTEM_PROMPTS) == 3
 
@@ -57,15 +56,17 @@ class TestSmoke:
 
     def test_server_tools_all_async(self):
         """All server tools should be async functions."""
-        from aulinx.tools import server_tools
         import inspect
+
+        from aulinx.tools import server_tools
         for tool in server_tools.TOOLS:
             assert inspect.iscoroutinefunction(tool.fn), f"{tool.name} is not async"
 
     def test_compositor_tools_all_async(self):
         """All compositor tools should be async functions."""
-        from aulinx.tools import compositor_tools
         import inspect
+
+        from aulinx.tools import compositor_tools
         for tool in compositor_tools.TOOLS:
             assert inspect.iscoroutinefunction(tool.fn), f"{tool.name} is not async"
 

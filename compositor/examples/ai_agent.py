@@ -15,10 +15,9 @@ Usage:
     ./demo.sh  # starts compositor + runs this
 """
 
-import sys
 import os
+import sys
 import time
-import json
 
 # Add compositor dir to path for the client library
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -47,7 +46,7 @@ def demo_observe(c: AulinxCompositor):
     # AI suggestions
     suggestions = c._rpc("scene.suggest").get("suggestions", [])
     if suggestions:
-        print(f"\n  AI suggests:")
+        print("\n  AI suggests:")
         for s in suggestions:
             print(f"    -> {s['action']}: {s['reason']}")
 
@@ -208,7 +207,7 @@ def main():
         print("\n\033[1;32m=== Demo Complete ===\033[0m")
         final_count = c.window_count()
         print(f"  Final state: {final_count} window(s)")
-        print(f"  Compositor is still running — press Super+Escape to quit\n")
+        print("  Compositor is still running — press Super+Escape to quit\n")
 
     except KeyboardInterrupt:
         print("\n  Interrupted")

@@ -282,8 +282,8 @@ def _show_info():
     mode_names = {"core": "Core (headless)", "desktop": "Desktop", "compositor": "Compositor"}
 
     console.print(f"\n[bold gold1]  Au[/bold gold1][bold white]linx[/bold white]  [dim]v{__version__}[/dim]\n")
-    console.print(f"  [bold]AI-native Linux. Desktop to server.[/bold]")
-    console.print(f"  Other AI agents look at your screen. Aulinx IS the screen.\n")
+    console.print("  [bold]AI-native Linux. Desktop to server.[/bold]")
+    console.print("  Other AI agents look at your screen. Aulinx IS the screen.\n")
 
     # Mode detection
     colors = {"core": "cyan", "desktop": "green", "compositor": "gold1"}
@@ -315,11 +315,11 @@ def _show_info():
     console.print(table)
 
     # Compositor IPC
-    console.print(f"\n  [bold]Compositor IPC:[/bold] 34 commands over Unix socket")
-    console.print(f"  [bold]Keyboard shortcuts:[/bold] 12 (Super+Return/Esc/J/K/H/L/Q/Space/F/1-9)")
-    console.print(f"  [bold]Wayland protocols:[/bold] 11")
-    console.print(f"\n  [dim]Run 'aulinx --doctor' for detailed dependency check[/dim]")
-    console.print(f"  [dim]Run 'aulinx --mode core' to force headless mode[/dim]\n")
+    console.print("\n  [bold]Compositor IPC:[/bold] 34 commands over Unix socket")
+    console.print("  [bold]Keyboard shortcuts:[/bold] 12 (Super+Return/Esc/J/K/H/L/Q/Space/F/1-9)")
+    console.print("  [bold]Wayland protocols:[/bold] 11")
+    console.print("\n  [dim]Run 'aulinx --doctor' for detailed dependency check[/dim]")
+    console.print("  [dim]Run 'aulinx --mode core' to force headless mode[/dim]\n")
 
 
 def main():

@@ -241,7 +241,7 @@ echo '{"jsonrpc":"2.0","id":6,"method":"scene.subscribe","params":{"filter":"*"}
 ### Architecture
 
 ```
-aulinx-compositor (Rust, ~3000 LOC)
+aulinx-compositor (Rust, ~3300 LOC)
 ├── Smithay Wayland compositor (winit + DRM backends)
 ├── Semantic bridge (window → scene graph sync)
 ├── IPC server (JSON-RPC over Unix socket)
@@ -258,7 +258,7 @@ aulinx-semantic (Rust library)
 
 ## Tools
 
-187 tools across 30 modules:
+186 tools across 45 modules:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -333,12 +333,11 @@ temperature = 0.3
 
 ## Roadmap
 
-- [x] **Phase 0**: 186 tools + CLI + web UI + tests + audit + long-term memory
-- [x] **Phase 1**: Daemon, voice, MCP server, plugins, workflows, systemd
-- [x] **Phase 2a**: Semantic compositor — Wayland compositor with scene graph, IPC, input injection
-- [ ] **Phase 2b**: DRM backend — run compositor on bare metal (not just inside GNOME)
-- [ ] **Phase 3**: Full AI desktop environment (daily-drivable)
-- [ ] **Phase 4**: Distributable Linux distro image
+- [x] **v0.1–v0.3**: 186 tools + CLI + web UI + tests + audit + long-term memory + daemon + voice + MCP + plugins
+- [x] **v0.4.0**: Semantic compositor — Wayland compositor with scene graph, 34 IPC commands, input injection, DRM/udev backend
+- [ ] **v0.5**: OSWorld benchmark, multi-LLM backend (Claude/GPT-4/Ollama), compositor hardening
+- [ ] **v0.6**: React dashboard, daily-drivable compositor, open-source launch
+- [ ] **v1.0**: Full AI desktop environment + distributable Linux image
 
 ## Name
 

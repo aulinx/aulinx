@@ -13,7 +13,7 @@ import os
 import socket
 from typing import Optional
 
-from .base import Tool, Tier
+from .base import Tier, Tool
 
 # Persistent connection to the semantic socket
 _connection: Optional[socket.socket] = None

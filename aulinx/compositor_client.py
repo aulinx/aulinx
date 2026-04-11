@@ -8,8 +8,8 @@ Usage:
         c.type_text("hello")
 """
 
-import sys
 import os
+import sys
 
 # Add compositor dir to path if the client library isn't importable
 _compositor_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "compositor")
@@ -60,7 +60,8 @@ except ImportError:
             data = b""
             while b"\n" not in data:
                 chunk = self._sock.recv(1048576)
-                if not chunk: break
+                if not chunk:
+                    break
                 data += chunk
             resp = json.loads(data.decode().strip())
             if "error" in resp:
@@ -75,7 +76,8 @@ except ImportError:
             r = self._rpc("scene.screenshot")
             png = base64.b64decode(r["data"])
             if path:
-                with open(path, "wb") as f: f.write(png)
+                with open(path, "wb") as f:
+                    f.write(png)
             return png
         def type_text(self, text): self._rpc("input.type", {"text": text})
         def key(self, combo): self._rpc("input.key", {"combo": combo})

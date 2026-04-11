@@ -61,7 +61,7 @@ def main():
 
     # Ping
     r = rpc(s, "ping")
-    test("ping returns pong", r.get("result", {}).get("pong") == True)
+    test("ping returns pong", r.get("result", {}).get("pong") is True)
 
     # List commands
     r = rpc(s, "scene.list_commands")
@@ -109,7 +109,7 @@ def main():
     r = rpc(s, "scene.annotated_screenshot")
     result = r.get("result", {})
     test("annotated_screenshot returns data", "data" in result)
-    test("annotated_screenshot marked", result.get("annotated") == True)
+    test("annotated_screenshot marked", result.get("annotated") is True)
 
     # Diff
     r = rpc(s, "scene.diff")
@@ -117,7 +117,7 @@ def main():
 
     # Wait for
     r = rpc(s, "scene.wait_for", {"count": 0})
-    test("wait_for with count=0 matches", r.get("result", {}).get("matched") == True)
+    test("wait_for with count=0 matches", r.get("result", {}).get("matched") is True)
 
     # Keyboard shortcuts
     r = rpc(s, "scene.keyboard_shortcuts")
@@ -129,15 +129,15 @@ def main():
 
     # Input type (safe — just types into whatever is focused)
     r = rpc(s, "input.type", {"text": "test"})
-    test("input.type succeeds", r.get("result", {}).get("ok") == True or "error" in r)
+    test("input.type succeeds", r.get("result", {}).get("ok") is True or "error" in r)
 
     # Input key
     r = rpc(s, "input.key", {"combo": "ctrl+a"})
-    test("input.key succeeds", r.get("result", {}).get("ok") == True or "error" in r)
+    test("input.key succeeds", r.get("result", {}).get("ok") is True or "error" in r)
 
     # Input move
     r = rpc(s, "input.move", {"x": 100, "y": 100})
-    test("input.move succeeds", r.get("result", {}).get("ok") == True)
+    test("input.move succeeds", r.get("result", {}).get("ok") is True)
 
     # Input batch
     r = rpc(s, "input.batch", {"actions": [
@@ -148,7 +148,7 @@ def main():
 
     # Layout
     r = rpc(s, "layout.set_ratio", {"ratio": 0.5})
-    test("layout.set_ratio works", r.get("result", {}).get("ok") == True)
+    test("layout.set_ratio works", r.get("result", {}).get("ok") is True)
     rpc(s, "layout.set_ratio", {"ratio": 0.6})  # restore
 
     # Describe
@@ -168,7 +168,7 @@ def main():
 
     # Layout gap
     r = rpc(s, "layout.set_gap", {"gap": 8})
-    test("layout.set_gap works", r.get("result", {}).get("ok") == True)
+    test("layout.set_gap works", r.get("result", {}).get("ok") is True)
     rpc(s, "layout.set_gap", {"gap": 4})  # restore
 
     # Window list (concise)

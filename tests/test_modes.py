@@ -1,7 +1,6 @@
 """Tests for three-tier mode system — mode detection, tool filtering, core tools."""
 
 import os
-import pytest
 from unittest.mock import patch
 
 from aulinx.tools.registry import ToolRegistry
