@@ -1,0 +1,1 @@
+"""Aulinx OSWorld benchmark adapter."""
