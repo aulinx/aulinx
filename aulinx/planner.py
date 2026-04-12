@@ -5,7 +5,9 @@ then executes step-by-step with re-planning after each observation.
 This prevents thrashing and improves task completion rates.
 """
 
+import re
 from dataclasses import dataclass, field
+from enum import Enum
 
 PLANNING_PROMPT = """\
 You are a planning module. Given the user's goal and current desktop state, \
@@ -54,6 +56,24 @@ Reply with exactly one of: DONE, CONTINUE, or a revised plan.
 """
 
 
+class VerifyType(Enum):
+    """Types of verification conditions for plan steps."""
+    NONE = "none"              # no verification needed
+    ELEMENT_VISIBLE = "element_visible"  # check if a UI element is visible
+    FILE_EXISTS = "file_exists"          # check if a file exists
+    OUTPUT_CONTAINS = "output_contains"  # check if output contains a string
+    WINDOW_OPEN = "window_open"          # check if a window is open
+    APP_RUNNING = "app_running"          # check if an app is running
+
+
+@dataclass
+class VerifyCondition:
+    """A condition that must be true for a step to be considered successful."""
+    type: VerifyType
+    target: str  # what to check (element name, file path, output string, etc.)
+    description: str = ""  # human-readable description
+
+
 @dataclass
 class PlanStep:
     """A single step in the execution plan."""
@@ -62,6 +82,7 @@ class PlanStep:
     description: str
     status: str = "pending"  # pending, running, done, failed, skipped
     result_summary: str = ""
+    verify: VerifyCondition | None = None  # optional verification condition
 
 
 @dataclass
@@ -122,7 +143,6 @@ def parse_plan(text: str) -> list[PlanStep]:
         if not line:
             continue
         # Match patterns like "1. [tool_name] — description" or "1. tool_name - description"
-        import re
         match = re.match(r"(\d+)\.\s*\[?(\w+)\]?\s*[—\-–:]\s*(.*)", line)
         if match:
             num = int(match.group(1))
@@ -177,3 +197,106 @@ def inject_plan_into_system(system_prompt: str, plan: ExecutionPlan) -> str:
         f"--- END PLAN ---"
     )
     return system_prompt + plan_context
+
+
+# --- Task decomposition with verification ---
+
+DECOMPOSITION_PROMPT = """\
+You are a task decomposition module. Break down this complex goal into \
+independent subtasks that can be verified separately.
+
+For each subtask, specify:
+- The tool to use
+- What to do
+- How to VERIFY success (one of: element_visible, file_exists, output_contains, window_open, app_running)
+- What to check (the target for verification)
+
+Format:
+1. [tool_name] — description | verify: <type>(<target>)
+2. [tool_name] — description | verify: <type>(<target>)
+
+Example:
+1. [app_launch] — open the file manager | verify: window_open(nautilus)
+2. [file_write] — create test.txt | verify: file_exists(/home/user/test.txt)
+3. [atspi_find_elements] — confirm file appears in list | verify: element_visible(test.txt)
+
+Goal: {goal}
+
+Available tools: {tools}
+
+Current state:
+{context}
+"""
+
+
+def parse_plan_with_verification(text: str) -> list[PlanStep]:
+    """Parse a plan that includes verification conditions.
+
+    Format: 1. [tool] — description | verify: type(target)
+    """
+    steps = []
+    for line in text.strip().split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+
+        # Split on verification marker
+        verify = None
+        main_part = line
+        verify_match = re.search(r"\|\s*verify:\s*(\w+)\(([^)]*)\)", line)
+        if verify_match:
+            verify_type_str = verify_match.group(1)
+            verify_target = verify_match.group(2).strip()
+            main_part = line[:verify_match.start()].strip()
+            try:
+                verify_type = VerifyType(verify_type_str)
+                verify = VerifyCondition(type=verify_type, target=verify_target)
+            except ValueError:
+                pass
+
+        # Parse the main step
+        match = re.match(r"(\d+)\.\s*\[?(\w+)\]?\s*[—\-–:]\s*(.*)", main_part)
+        if match:
+            num = int(match.group(1))
+            tool = match.group(2)
+            desc = match.group(3).strip()
+            steps.append(PlanStep(number=num, tool=tool, description=desc, verify=verify))
+
+    return steps
+
+
+def build_decomposition_prompt(goal: str, tool_names: list[str], context: str) -> str:
+    """Build a decomposition prompt that requests verification conditions."""
+    tools_str = ", ".join(tool_names[:60])
+    return DECOMPOSITION_PROMPT.format(
+        goal=goal,
+        tools=tools_str,
+        context=context[:2000],
+    )
+
+
+def check_verification(verify: VerifyCondition, tool_result: dict | str) -> bool:
+    """Check if a verification condition is met based on a tool result.
+
+    This is a heuristic check — for more reliable verification,
+    the agent should call a dedicated observation tool.
+    """
+    if verify.type == VerifyType.NONE:
+        return True
+
+    result_str = str(tool_result).lower() if tool_result else ""
+    target_lower = verify.target.lower()
+
+    if verify.type == VerifyType.OUTPUT_CONTAINS:
+        return target_lower in result_str
+
+    if verify.type == VerifyType.FILE_EXISTS:
+        # Check if the result doesn't contain an error about the file
+        return "error" not in result_str and "not found" not in result_str
+
+    if verify.type in (VerifyType.ELEMENT_VISIBLE, VerifyType.WINDOW_OPEN, VerifyType.APP_RUNNING):
+        # These need a follow-up observation — return True optimistically
+        # The agent should call the appropriate tool to verify
+        return target_lower in result_str or "error" not in result_str
+
+    return True

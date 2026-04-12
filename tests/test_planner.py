@@ -3,9 +3,14 @@
 from aulinx.planner import (
     ExecutionPlan,
     PlanStep,
+    VerifyCondition,
+    VerifyType,
+    build_decomposition_prompt,
     build_planning_prompt,
+    check_verification,
     inject_plan_into_system,
     parse_plan,
+    parse_plan_with_verification,
 )
 
 
@@ -134,3 +139,59 @@ class TestInjectPlanIntoSystem:
         plan.advance()
         result = inject_plan_into_system("base prompt", plan)
         assert result == "base prompt"
+
+
+class TestParsePlanWithVerification:
+    def test_with_verify(self):
+        text = '1. [app_launch] — open file manager | verify: window_open(nautilus)\n2. [file_write] — create test.txt | verify: file_exists(/home/user/test.txt)'
+        steps = parse_plan_with_verification(text)
+        assert len(steps) == 2
+        assert steps[0].verify is not None
+        assert steps[0].verify.type == VerifyType.WINDOW_OPEN
+        assert steps[0].verify.target == "nautilus"
+        assert steps[1].verify.type == VerifyType.FILE_EXISTS
+
+    def test_without_verify(self):
+        text = "1. [window_list] — check windows"
+        steps = parse_plan_with_verification(text)
+        assert len(steps) == 1
+        assert steps[0].verify is None
+
+    def test_mixed(self):
+        text = "1. [window_list] — check windows\n2. [app_launch] — open app | verify: app_running(firefox)"
+        steps = parse_plan_with_verification(text)
+        assert len(steps) == 2
+        assert steps[0].verify is None
+        assert steps[1].verify is not None
+
+
+class TestCheckVerification:
+    def test_none_always_passes(self):
+        v = VerifyCondition(type=VerifyType.NONE, target="")
+        assert check_verification(v, {}) is True
+
+    def test_output_contains_pass(self):
+        v = VerifyCondition(type=VerifyType.OUTPUT_CONTAINS, target="success")
+        assert check_verification(v, {"result": "operation success"}) is True
+
+    def test_output_contains_fail(self):
+        v = VerifyCondition(type=VerifyType.OUTPUT_CONTAINS, target="success")
+        assert check_verification(v, {"result": "operation failed"}) is False
+
+    def test_file_exists_pass(self):
+        v = VerifyCondition(type=VerifyType.FILE_EXISTS, target="/tmp/test.txt")
+        assert check_verification(v, {"path": "/tmp/test.txt", "size": 100}) is True
+
+    def test_file_exists_fail(self):
+        v = VerifyCondition(type=VerifyType.FILE_EXISTS, target="/tmp/test.txt")
+        assert check_verification(v, {"error": "file not found"}) is False
+
+
+class TestBuildDecompositionPrompt:
+    def test_includes_goal(self):
+        prompt = build_decomposition_prompt("setup dev env", ["app_launch"], "ctx")
+        assert "setup dev env" in prompt
+
+    def test_includes_verify_format(self):
+        prompt = build_decomposition_prompt("test", ["tool1"], "ctx")
+        assert "verify:" in prompt
