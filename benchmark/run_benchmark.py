@@ -186,8 +186,12 @@ def run_benchmark(args):
 
     # Discover VM
     vmx_path = _find_vmx(osworld_path)
+    logger.info("VM at %s", vmx_path)
+
+    # Start VM if not running
+    _ensure_vm_running(vmx_path)
     vm_ip = _get_vm_ip(vmx_path)
-    logger.info("VM at %s (IP: %s)", vmx_path, vm_ip)
+    logger.info("VM IP: %s", vm_ip)
 
     # Wait for VM HTTP server
     _wait_for_vm(vm_ip)
@@ -312,6 +316,24 @@ def run_benchmark(args):
     _print_summary(summary)
 
 
+def _vmrun() -> str:
+    """Get the vmrun executable path."""
+    import shutil
+    vmrun = shutil.which("vmrun")
+    if vmrun:
+        return vmrun
+    # Check common Windows locations
+    for d in [
+        r"D:\Tools\VMware\VMware Workstation",
+        r"C:\Program Files (x86)\VMware\VMware Workstation",
+        r"C:\Program Files\VMware\VMware Workstation",
+    ]:
+        candidate = Path(d) / "vmrun.exe"
+        if candidate.exists():
+            return str(candidate)
+    raise FileNotFoundError("vmrun not found. Install VMware Workstation or add it to PATH.")
+
+
 def _find_vmx(osworld_path: Path) -> str:
     """Find the OSWorld VM's .vmx file."""
     vm_data = osworld_path / "vmware_vm_data"
@@ -322,17 +344,42 @@ def _find_vmx(osworld_path: Path) -> str:
     raise FileNotFoundError(f"No .vmx file found in {vm_data}")
 
 
+def _ensure_vm_running(vmx_path: str):
+    """Start the VM if it's not already running."""
+    import subprocess
+    result = subprocess.run(
+        [_vmrun(), "list"],
+        capture_output=True, text=True, timeout=15,
+    )
+    if vmx_path.replace("/", "\\") in result.stdout or vmx_path in result.stdout:
+        logger.info("VM already running")
+        return
+
+    logger.info("Starting VM...")
+    subprocess.run(
+        [_vmrun(), "-T", "ws", "start", vmx_path, "nogui"],
+        capture_output=True, timeout=120,
+    )
+    time.sleep(15)  # Wait for boot
+
+
 def _get_vm_ip(vmx_path: str) -> str:
     """Get the VM's IP address via vmrun."""
     import subprocess
-    result = subprocess.run(
-        ["vmrun", "-T", "ws", "getGuestIPAddress", vmx_path, "-wait"],
-        capture_output=True, text=True, timeout=60,
-    )
-    ip = result.stdout.strip()
-    if not ip or result.returncode != 0:
-        raise RuntimeError(f"Could not get VM IP: {result.stderr}")
-    return ip
+
+    # Retry a few times — VM may still be booting
+    for attempt in range(5):
+        result = subprocess.run(
+            [_vmrun(), "-T", "ws", "getGuestIPAddress", vmx_path, "-wait"],
+            capture_output=True, text=True, timeout=60,
+        )
+        ip = result.stdout.strip()
+        if ip and result.returncode == 0:
+            return ip
+        logger.info("Waiting for VM IP (attempt %d/5)...", attempt + 1)
+        time.sleep(10)
+
+    raise RuntimeError(f"Could not get VM IP after 5 attempts: {result.stderr}")
 
 
 def _revert_vm(vmx_path: str):
@@ -340,12 +387,12 @@ def _revert_vm(vmx_path: str):
     import subprocess
     logger.info("Reverting VM to init_state...")
     subprocess.run(
-        ["vmrun", "-T", "ws", "revertToSnapshot", vmx_path, "init_state"],
+        [_vmrun(), "-T", "ws", "revertToSnapshot", vmx_path, "init_state"],
         capture_output=True, timeout=60,
     )
     time.sleep(2)
     subprocess.run(
-        ["vmrun", "-T", "ws", "start", vmx_path, "nogui"],
+        [_vmrun(), "-T", "ws", "start", vmx_path, "nogui"],
         capture_output=True, timeout=60,
     )
     time.sleep(10)
