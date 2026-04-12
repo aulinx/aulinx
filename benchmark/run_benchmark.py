@@ -484,7 +484,7 @@ def _load_tasks(examples_dir: Path, domain: str | None) -> dict:
         if domain and domain_dir.name != domain:
             continue
         for task_file in sorted(domain_dir.glob("*.json")):
-            with open(task_file) as f:
+            with open(task_file, encoding="utf-8") as f:
                 task = json.load(f)
             task["domain"] = domain_dir.name
             tasks[task_file.stem] = task
