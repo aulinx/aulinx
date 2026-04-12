@@ -117,6 +117,11 @@ def parse_args() -> argparse.Namespace:
         help="Enable ReAct-style planning before tool execution (generates a step-by-step plan first)",
     )
     parser.add_argument(
+        "--dynamic-tools",
+        action="store_true",
+        help="Enable dynamic tool selection (picks tools relevant to each query instead of static set)",
+    )
+    parser.add_argument(
         "--mode",
         choices=["auto", "core", "desktop", "compositor"],
         default="auto",
@@ -386,6 +391,8 @@ def main():
     agent = _build_agent(args, mode=mode)
     if args.plan:
         agent.use_planner = True
+    if args.dynamic_tools:
+        agent.use_dynamic_tools = True
 
     if args.command:
         asyncio.run(run_command(agent, args.command))

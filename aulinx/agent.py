@@ -8,10 +8,12 @@ from rich.panel import Panel
 
 from aulinx.audit import AuditLog
 from aulinx.context.desktop import DesktopContext
+from aulinx.grounding import ground_element_from_tree
 from aulinx.history import HistoryManager
 from aulinx.llm import LLMClient, create_client, strip_json_blocks
 from aulinx.planner import ExecutionPlan, build_planning_prompt, inject_plan_into_system, parse_plan
 from aulinx.recovery import RecoveryState
+from aulinx.tool_selector import select_tools
 from aulinx.tools.registry import ToolRegistry
 
 console = Console()
@@ -105,7 +107,9 @@ class Agent:
         )
         self.plan: ExecutionPlan | None = None
         self.use_planner: bool = False  # enable with --plan flag
+        self.use_dynamic_tools: bool = False  # enable with --dynamic-tools flag
         self.recovery = RecoveryState()
+        self._last_a11y_tree: str = ""  # cached for grounding
 
     async def initialize(self):
         """Check Ollama is running and model is available."""
@@ -167,7 +171,20 @@ class Agent:
             *self.history[-self.max_history:],
         ]
 
-        tools = self.tools.to_ollama_tools()
+        # Dynamic tool selection: pick tools relevant to the query
+        if self.use_dynamic_tools and user_query:
+            selected_names = select_tools(
+                user_query,
+                mode=self.mode,
+                available_tools=set(self.tools._tools.keys()),
+            )
+            tools = [
+                t.to_ollama_schema()
+                for t in self.tools._tools.values()
+                if t.name in selected_names
+            ]
+        else:
+            tools = self.tools.to_ollama_tools()
 
         # Stream response
         full_content = ""
@@ -263,6 +280,10 @@ class Agent:
                 else:
                     console.print(f"  [dim]> {tool_name}({_format_args(args)})[/dim]")
 
+                # Action grounding: if clicking/typing and we have a cached tree,
+                # try to resolve element names to exact coordinates
+                args = self._try_ground_action(tool_name, args)
+
                 # Execute
                 t0 = time.monotonic()
                 result = await self.tools.execute(tool_name, args)
@@ -295,6 +316,10 @@ class Agent:
 
                 self.history.append({"role": "tool", "content": result_str})
 
+                # Cache a11y tree from observation tools for grounding
+                if tool_name in ("atspi_get_tree", "atspi_find_elements", "scene_find"):
+                    self._last_a11y_tree = result_str
+
                 # Advance plan if active
                 if self.plan and not self.plan.is_complete:
                     if is_error:
@@ -305,6 +330,27 @@ class Agent:
             # Let LLM process tool results
             await self.handle("", _depth=_depth + 1)
 
+
+    def _try_ground_action(self, tool_name: str, args: dict) -> dict:
+        """Try to ground element references in tool args to exact coordinates.
+
+        If the LLM calls a click/type tool with a target element name,
+        look up its coordinates in the cached a11y tree.
+        """
+        if not self._last_a11y_tree:
+            return args
+
+        # Grounding for click tools: if 'element' or 'name' is provided but no coordinates
+        click_tools = {"compositor_click", "atspi_do_action", "input_key_combo"}
+        if tool_name in click_tools:
+            element_name = args.get("element") or args.get("name") or args.get("query", "")
+            if element_name and "x" not in args and "y" not in args:
+                grounded = ground_element_from_tree(element_name, self._last_a11y_tree)
+                if grounded:
+                    args = {**args, "x": grounded.center_x, "y": grounded.center_y}
+                    console.print(f"  [dim]Grounded '{element_name}' → ({grounded.center_x}, {grounded.center_y})[/dim]")
+
+        return args
 
     async def _generate_plan(self, goal: str, context: str):
         """Generate an execution plan using the LLM."""
