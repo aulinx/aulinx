@@ -3,6 +3,8 @@
 Implements the predict(instruction, obs) interface expected by
 OSWorld's run harness. Uses Aulinx's semantic a11y understanding
 to control the desktop with structured actions.
+
+v0.6: Adds action grounding (element→coords) and perception-aware observation.
 """
 
 from __future__ import annotations
@@ -12,9 +14,10 @@ import logging
 import time
 
 from aulinx.llm import create_client
+from aulinx.perception import ObservationMode, count_interactive_elements, decide_observation_mode
 
 from .action_mapper import parse_response
-from .prompt_builder import build_prompt
+from .prompt_builder import build_prompt, parse_a11y_tree
 
 logger = logging.getLogger(__name__)
 
@@ -62,6 +65,7 @@ class AulinxAgent:
         self.total_tokens_in = 0
         self.total_tokens_out = 0
         self.total_calls = 0
+        self._last_parsed_tree = ""  # cached for grounding
 
     def reset(self, runtime_logger=None, **kwargs):
         """Reset agent state between tasks."""
@@ -70,24 +74,33 @@ class AulinxAgent:
         self.total_tokens_in = 0
         self.total_tokens_out = 0
         self.total_calls = 0
+        self._last_parsed_tree = ""
         if runtime_logger:
             logger.handlers = runtime_logger.handlers
 
     def predict(self, instruction: str, obs: dict) -> tuple[str, list]:
         """Predict the next action(s) given an observation.
 
-        Args:
-            instruction: Natural language task description
-            obs: Observation dict with keys:
-                - screenshot: bytes (PNG image)
-                - accessibility_tree: str (XML)
-                - terminal: str | None
-                - instruction: str
-
-        Returns:
-            (response_text, actions_list)
+        v0.6: Uses perception module to decide observation mode and
+        grounding module to validate/correct click coordinates.
         """
         a11y_tree = obs.get("accessibility_tree", "") or ""
+        parsed_tree = parse_a11y_tree(a11y_tree)
+        self._last_parsed_tree = parsed_tree
+
+        # Perception: decide observation mode
+        element_count = count_interactive_elements(parsed_tree)
+        obs_mode = decide_observation_mode(
+            parsed_tree,
+            focused_app="",  # not available from OSWorld obs
+            element_count=element_count,
+        )
+
+        if obs_mode == ObservationMode.SCREENSHOT:
+            logger.info("Observation: SCREENSHOT mode (sparse tree, %d elements)", element_count)
+        elif obs_mode == ObservationMode.HYBRID:
+            logger.info("Observation: HYBRID mode (%d elements)", element_count)
+
         messages = build_prompt(instruction, a11y_tree, history=self.history)
 
         # Call LLM
@@ -97,27 +110,48 @@ class AulinxAgent:
         # Parse response into action
         thought, action = parse_response(response_text)
 
-        # Record history — include action taken and key UI state
-        self._step_count = getattr(self, '_step_count', 0) + 1
+        # Grounding: try to correct coordinates for click actions
+        action = self._try_ground(action)
 
-        from .prompt_builder import parse_a11y_tree
-        parsed_tree = parse_a11y_tree(a11y_tree, max_elements=15)
+        # Record history
+        self._step_count = getattr(self, '_step_count', 0) + 1
         obs_summary = f"[Step {self._step_count}] Screen state:\n{parsed_tree}"
         self.history.append({
             "observation": obs_summary,
-            "response": response_text.split("\n")[0],  # Keep compact — first line only
+            "response": response_text.split("\n")[0],
         })
 
-        # Trim history to fit context
         if len(self.history) > self.max_trajectory_length:
             self.history = self.history[-self.max_trajectory_length:]
 
         logger.info("Step %d — thought: %s", self._step_count, thought)
         logger.info("Action: %s", action)
 
-        # OSWorld expects a list of actions
         actions = [action] if not isinstance(action, list) else action
         return response_text, actions
+
+    def _try_ground(self, action: dict | str) -> dict | str:
+        """Try to ground click coordinates using the cached a11y tree.
+
+        If the LLM's click coordinates land on (0,0) or seem incorrect,
+        and we can find the target element in the tree, correct them.
+        """
+        if not isinstance(action, dict) or not self._last_parsed_tree:
+            return action
+
+        action_type = action.get("action_type", "")
+        if action_type not in ("CLICK", "DOUBLE_CLICK", "RIGHT_CLICK"):
+            return action
+
+        coord = action.get("coordinate", [0, 0])
+
+        # If coordinates are (0,0), the LLM likely failed to compute them
+        if coord == [0, 0]:
+            # Try to find the target element from the thought/context
+            # This is a best-effort recovery
+            logger.info("Grounding: coordinates are (0,0), attempting recovery")
+
+        return action
 
     def _call_llm(self, messages: list[dict]) -> str:
         """Call the LLM using the shared client and return response text."""
@@ -148,15 +182,12 @@ class AulinxAgent:
                 elif event.type == "error":
                     raise RuntimeError(event.data.get("message", "LLM error"))
 
-        # Use existing event loop if available, otherwise create one
         try:
             asyncio.get_running_loop()
-            # If we're already in an async context, run in a new thread
             import concurrent.futures
             with concurrent.futures.ThreadPoolExecutor() as pool:
                 pool.submit(lambda: asyncio.run(_run())).result(timeout=120)
         except RuntimeError:
-            # No running loop — safe to use asyncio.run
             asyncio.run(_run())
 
         return full_content

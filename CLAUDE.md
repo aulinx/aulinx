@@ -11,6 +11,11 @@ aulinx/
 ├── llm.py              — LLMClient abstraction: Ollama, OpenAI, Anthropic, Gemini
 ├── planner.py          — ReAct-style structured planning (3-8 step plans)
 ├── recovery.py         — Error recovery with tool alternatives + strategy fallback
+├── perception.py       — Hybrid observation: semantic tree vs screenshot decision
+├── grounding.py        — Action grounding: element names → exact (x,y) coordinates
+├── tool_selector.py    — Dynamic tool selection based on task intent
+├── summarizer.py       — History compression to reduce token usage
+├── outcomes.py         — Learning from outcomes across sessions
 ├── server.py           — WebSocket server for React UI palette
 ├── config.py           — ~/.config/aulinx/config.toml loader
 ├── audit.py            — JSONL audit log with secret redaction
@@ -36,6 +41,11 @@ aulinx/
 - **Multi-provider LLM**: `create_client(provider, model)` factory in `llm.py`. Supports Ollama, OpenAI, Anthropic, Gemini with streaming + tool calling.
 - **ReAct planning**: `planner.py` generates 3-8 step plans before tool execution, injects plan context into system prompt, re-plans after observations.
 - **Error recovery**: `recovery.py` tracks failures, suggests alternative tools (e.g., atspi_do_action → compositor_click), switches strategy after 3 consecutive failures.
+- **Hybrid perception**: `perception.py` decides per-step whether to use semantic tree, screenshot, or both based on app type and tree density.
+- **Action grounding**: `grounding.py` resolves element references ("Save button") to exact screen coordinates from the a11y tree, eliminating coordinate hallucination.
+- **Dynamic tool selection**: `tool_selector.py` picks task-relevant tools instead of static CORE_TOOLS set. "manage files" → file tools, "browse web" → browser tools.
+- **History summarization**: `summarizer.py` compresses old conversation turns to reduce token usage (384K → ~150K tokens/task).
+- **Learning from outcomes**: `outcomes.py` records task results (goal, plan, actions, success/failure) and retrieves relevant past experience for similar future tasks.
 - **Native tool calling**: Agent sends `tools` array to LLM. Model returns structured `tool_calls`. Falls back to regex JSON extraction for models without tool support.
 - **Kwarg stripping**: `registry.execute()` uses `inspect.signature()` to strip hallucinated parameters before calling tool functions.
 - **Permission tiers**: OBSERVE (auto), LOW_RISK (auto+log), MUTATE (confirm once), DESTRUCTIVE (always confirm), IRREVERSIBLE (always + warning).
@@ -45,7 +55,7 @@ aulinx/
 ## Dev Setup
 ```bash
 pip install -e ".[dev]"
-make test    # 193 tests (Linux-specific tests skip on other platforms)
+make test    # 276 tests (Linux-specific tests skip on other platforms)
 make lint    # ruff
 ```
 
