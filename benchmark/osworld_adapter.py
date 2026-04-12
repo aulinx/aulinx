@@ -13,6 +13,7 @@ import asyncio
 import logging
 import time
 
+from aulinx.grounding import ground_element_from_tree
 from aulinx.llm import create_client
 from aulinx.perception import ObservationMode, count_interactive_elements, decide_observation_mode
 
@@ -111,7 +112,7 @@ class AulinxAgent:
         thought, action = parse_response(response_text)
 
         # Grounding: try to correct coordinates for click actions
-        action = self._try_ground(action)
+        action = self._try_ground(action, thought)
 
         # Record history
         self._step_count = getattr(self, '_step_count', 0) + 1
@@ -130,11 +131,15 @@ class AulinxAgent:
         actions = [action] if not isinstance(action, list) else action
         return response_text, actions
 
-    def _try_ground(self, action: dict | str) -> dict | str:
+    def _try_ground(self, action: dict | str, thought: str = "") -> dict | str:
         """Try to ground click coordinates using the cached a11y tree.
 
-        If the LLM's click coordinates land on (0,0) or seem incorrect,
-        and we can find the target element in the tree, correct them.
+        If the LLM's click coordinates are (0,0) or look wrong, search the
+        a11y tree for the target element mentioned in the thought text and
+        correct the coordinates.
+
+        Also validates non-zero coordinates: if the click target is named
+        in the thought and we can find it, verify the coords are close.
         """
         if not isinstance(action, dict) or not self._last_parsed_tree:
             return action
@@ -145,11 +150,35 @@ class AulinxAgent:
 
         coord = action.get("coordinate", [0, 0])
 
-        # If coordinates are (0,0), the LLM likely failed to compute them
+        # Extract target element name from thought text
+        target = _extract_click_target(thought)
+        if not target:
+            return action
+
+        # Try to find the element in the tree
+        grounded = ground_element_from_tree(target, self._last_parsed_tree)
+        if not grounded:
+            return action
+
+        # Case 1: Zero coordinates — replace with grounded coords
         if coord == [0, 0]:
-            # Try to find the target element from the thought/context
-            # This is a best-effort recovery
-            logger.info("Grounding: coordinates are (0,0), attempting recovery")
+            logger.info(
+                "Grounding: (0,0) → (%d,%d) for '%s' (confidence=%.2f)",
+                grounded.center_x, grounded.center_y, target, grounded.confidence,
+            )
+            action["coordinate"] = [grounded.center_x, grounded.center_y]
+            return action
+
+        # Case 2: Non-zero but far from the grounded element — correct if confident
+        dx = abs(coord[0] - grounded.center_x)
+        dy = abs(coord[1] - grounded.center_y)
+        if (dx > 100 or dy > 100) and grounded.confidence >= 0.7:
+            logger.info(
+                "Grounding: (%d,%d) → (%d,%d) for '%s' (off by %d,%d, confidence=%.2f)",
+                coord[0], coord[1], grounded.center_x, grounded.center_y,
+                target, dx, dy, grounded.confidence,
+            )
+            action["coordinate"] = [grounded.center_x, grounded.center_y]
 
         return action
 
@@ -201,3 +230,58 @@ class AulinxAgent:
             "avg_input_tokens": self.total_tokens_in / max(1, self.total_calls),
             "avg_output_tokens": self.total_tokens_out / max(1, self.total_calls),
         }
+
+
+def _extract_click_target(thought: str) -> str:
+    """Extract the target element name from an LLM thought string.
+
+    Patterns:
+    - "I need to click on Documents" → "Documents"
+    - "click the Save button" → "Save"
+    - "I'll click 'New Folder'" → "New Folder"
+    - "clicking on the OK button" → "OK"
+    """
+    import re
+
+    if not thought:
+        return ""
+
+    # Pattern 1: quoted target — 'Name' or "Name"
+    quoted = re.search(r"""['"]([^'"]+)['"]""", thought)
+    if quoted:
+        return quoted.group(1)
+
+    # Pattern 2: "click (on|the) <target> (button|link|tab|...)"
+    click_match = re.search(
+        r"click(?:ing)?\s+(?:on\s+)?(?:the\s+)?(\w[\w\s]*?)(?:\s+(?:button|link|tab|menu|item|icon|folder|file|option|checkbox))?[.,!]?\s*$",
+        thought,
+        re.IGNORECASE,
+    )
+    if click_match:
+        target = click_match.group(1).strip()
+        if len(target) >= 2:
+            return target
+
+    # Pattern 3: "select <target>"
+    select_match = re.search(
+        r"select\s+(?:the\s+)?(\w[\w\s]*?)(?:\s+(?:option|item|entry))?[.,!]?\s*$",
+        thought,
+        re.IGNORECASE,
+    )
+    if select_match:
+        target = select_match.group(1).strip()
+        if len(target) >= 2:
+            return target
+
+    # Pattern 4: "open <target>"
+    open_match = re.search(
+        r"open\s+(?:the\s+)?(\w[\w\s]*?)(?:\s+(?:folder|file|app|application))?[.,!]?\s*$",
+        thought,
+        re.IGNORECASE,
+    )
+    if open_match:
+        target = open_match.group(1).strip()
+        if len(target) >= 2:
+            return target
+
+    return ""

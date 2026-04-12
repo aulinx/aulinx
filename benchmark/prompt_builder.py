@@ -58,9 +58,10 @@ Do NOT output multiple actions. Do NOT output anything else.
 
 ## Coordinate rules
 
-- Elements show: role "name" at (x,y) size (w,h)
-- Click the CENTER of the element: center_x = x + w/2, center_y = y + h/2
-- Example: button "Save" at (100,200) size (80,30) → click(x=140, y=215)
+- Elements show: role "name" at (x,y) size (w,h) center=(cx,cy)
+- The center= value is PRE-COMPUTED for you — use it directly for clicks
+- Example: button "Save" at (100,200) size (80,30) center=(140,215) → click(x=140, y=215)
+- ALWAYS use the center= coordinates, do NOT compute coordinates yourself
 
 ## Strategy rules
 
@@ -104,8 +105,11 @@ def parse_a11y_tree(xml_str: str, max_elements: int = 50) -> str:
             parts.append(f'"{elem["name"]}"')
         if elem.get("value"):
             parts.append(f"value={elem['value']!r}")
-        if elem.get("coord"):
-            parts.append(f"at ({elem['coord'][0]},{elem['coord'][1]}) size ({elem['size'][0]},{elem['size'][1]})")
+        if elem.get("coord") and elem.get("size"):
+            x, y = elem["coord"]
+            w, h = elem["size"]
+            cx, cy = x + w // 2, y + h // 2
+            parts.append(f"at ({x},{y}) size ({w},{h}) center=({cx},{cy})")
         states = []
         if elem.get("focused"):
             states.append("focused")
@@ -192,11 +196,22 @@ def build_prompt(instruction: str, a11y_tree: str, screenshot_desc: str | None =
     # Add history as a compact summary in the user message
     history_block = ""
     if history:
+        recent = history[-6:]  # Last 6 steps
+        # Older steps get compressed, recent steps kept verbose
         history_lines = []
-        for entry in history[-6:]:  # Last 6 steps
-            history_lines.append(f"You: {entry['response']}")
-        history_block = "\n## Previous Actions\n" + "\n".join(history_lines)
-        history_block += "\n\nDo NOT repeat the same action. Try a different approach if the screen hasn't changed."
+        for i, entry in enumerate(recent):
+            obs = entry.get("observation", "")
+            resp = entry.get("response", "")
+            if i < len(recent) - 3:
+                # Older: just the action taken
+                history_lines.append(f"  {resp}")
+            else:
+                # Recent: action + key observation
+                obs_first = obs.split("\n")[0] if obs else ""
+                history_lines.append(f"  {resp}  ({obs_first})")
+        history_block = "\n## Previous Actions (oldest→newest)\n" + "\n".join(history_lines)
+        history_block += "\n\nDo NOT repeat the same action. Try a DIFFERENT approach if the screen hasn't changed."
+        history_block += "\nUse the center= coordinates shown above for clicks — they are pre-computed for you."
 
     # Current observation
     obs_parts = [f"## Task\n{instruction}\n"]
