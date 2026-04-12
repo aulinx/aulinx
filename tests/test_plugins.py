@@ -1,10 +1,11 @@
 """Tests for plugin system."""
 
+import json
 from unittest.mock import patch
 
 import pytest
 
-from aulinx.plugins import discover_plugins
+from aulinx.plugins import PluginManifest, discover_plugins, list_plugins
 
 
 @pytest.fixture
@@ -60,3 +61,66 @@ TOOLS = [Tool(name="tool_{i}", description="Tool {i}", fn=tool_{i}, tier=Tier.OB
 ''')
         tools = discover_plugins()
         assert len(tools) == 3
+
+    def test_disabled_via_manifest(self, plugin_dir):
+        (plugin_dir / "disabled.py").write_text('''
+from aulinx.tools.base import Tool, Tier
+async def noop() -> dict:
+    return {}
+TOOLS = [Tool(name="noop", description="No-op", fn=noop, tier=Tier.OBSERVE)]
+''')
+        (plugin_dir / "disabled.json").write_text(json.dumps({
+            "name": "disabled",
+            "enabled": False,
+        }))
+        tools = discover_plugins()
+        assert len(tools) == 0
+
+    def test_manifest_metadata(self, plugin_dir):
+        (plugin_dir / "rich.py").write_text('''
+from aulinx.tools.base import Tool, Tier
+async def rich_tool() -> dict:
+    return {}
+TOOLS = [Tool(name="rich_tool", description="Rich", fn=rich_tool, tier=Tier.OBSERVE)]
+''')
+        (plugin_dir / "rich.json").write_text(json.dumps({
+            "name": "rich-plugin",
+            "version": "2.1.0",
+            "description": "A rich plugin",
+            "author": "Test Author",
+            "tools": ["rich_tool"],
+        }))
+        tools = discover_plugins()
+        assert len(tools) == 1
+
+        plugins = list_plugins()
+        assert len(plugins) == 1
+        assert plugins[0].name == "rich-plugin"
+        assert plugins[0].version == "2.1.0"
+        assert plugins[0].author == "Test Author"
+
+
+class TestPluginManifest:
+    def test_from_json(self):
+        m = PluginManifest.from_json({
+            "name": "test",
+            "version": "1.0",
+            "description": "A test plugin",
+            "tools": ["tool_a", "tool_b"],
+        })
+        assert m.name == "test"
+        assert m.version == "1.0"
+        assert len(m.tool_names) == 2
+
+    def test_to_dict(self):
+        m = PluginManifest(name="test", version="1.0", tool_names=["a"])
+        d = m.to_dict()
+        assert d["name"] == "test"
+        assert d["version"] == "1.0"
+        assert d["tools"] == ["a"]
+
+    def test_defaults(self):
+        m = PluginManifest(name="minimal")
+        assert m.version == "0.0.0"
+        assert m.enabled is True
+        assert m.tool_names == []

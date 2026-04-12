@@ -11,6 +11,7 @@ from aulinx.context.desktop import DesktopContext
 from aulinx.grounding import ground_element_from_tree
 from aulinx.history import HistoryManager
 from aulinx.llm import LLMClient, create_client, strip_json_blocks
+from aulinx.multi_agent import build_coordination_summary, decompose_task, execute_delegation_plan
 from aulinx.outcomes import OutcomeStore, TaskOutcome
 from aulinx.planner import ExecutionPlan, build_planning_prompt, inject_plan_into_system, parse_plan
 from aulinx.recovery import RecoveryState
@@ -111,6 +112,7 @@ class Agent:
         self.use_planner: bool = False  # enable with --plan flag
         self.use_dynamic_tools: bool = False  # enable with --dynamic-tools flag
         self.use_learning: bool = False  # enable with --learn flag
+        self.use_multi_agent: bool = False  # enable with --multi-agent flag
         self.recovery = RecoveryState()
         self.outcomes = OutcomeStore()
         self._last_a11y_tree: str = ""  # cached for grounding
@@ -173,6 +175,12 @@ class Agent:
             experience = self.outcomes.build_experience_context(user_query)
             if experience:
                 system_msg += f"\n\n{experience}"
+
+        # Multi-agent delegation: decompose complex tasks into parallel subtasks
+        if self.use_multi_agent and _depth == 0:
+            delegated = await self._try_delegate(user_query, system_msg)
+            if delegated:
+                return
 
         # Planning: generate a plan on first call, inject into system prompt on subsequent calls
         if self.use_planner and _depth == 0 and self.plan is None:
@@ -354,6 +362,38 @@ class Agent:
             # Let LLM process tool results
             await self.handle("", _depth=_depth + 1)
 
+
+    async def _try_delegate(self, goal: str, system_prompt: str) -> bool:
+        """Try to delegate the task to multiple worker agents.
+
+        Returns True if delegation happened (caller should return),
+        False if the task is too simple for delegation.
+        """
+        tool_names = list(self.tools._tools.keys())
+        plan = await decompose_task(goal, self.llm, tool_names)
+
+        # Only delegate if there are 2+ independent subtasks
+        if len(plan.subtasks) < 2:
+            return False
+
+        console.print(f"\n[dim]Delegating to {len(plan.subtasks)} worker agents:[/dim]")
+        for st in plan.subtasks:
+            tools_str = f" [dim]({', '.join(st.tools_hint[:3])})[/dim]" if st.tools_hint else ""
+            console.print(f"  [dim]{st.id}. {st.description}{tools_str}[/dim]")
+        console.print()
+
+        # Execute all subtasks
+        await execute_delegation_plan(plan, self.llm, self.tools, system_prompt)
+
+        # Build and display the combined result
+        summary = build_coordination_summary(plan)
+        console.print(summary)
+
+        # Add to history so the conversation continues naturally
+        self.history.append({"role": "assistant", "content": summary})
+        self.history_mgr.save(self.history)
+
+        return True
 
     def _record_outcome(self, goal: str, final_response: str):
         """Record the outcome of a completed task for future learning."""

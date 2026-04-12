@@ -127,6 +127,11 @@ def parse_args() -> argparse.Namespace:
         help="Enable learning from outcomes (records task results, retrieves past experience for similar tasks)",
     )
     parser.add_argument(
+        "--multi-agent",
+        action="store_true",
+        help="Enable multi-agent delegation (decomposes complex tasks into parallel subtasks)",
+    )
+    parser.add_argument(
         "--mode",
         choices=["auto", "core", "desktop", "compositor"],
         default="auto",
@@ -285,12 +290,28 @@ async def _handle_slash_command(text: str, agent: Agent, voice_input=None):
     elif cmd == "/info":
         _show_info()
 
+    elif cmd == "/plugins":
+        from aulinx.plugins import list_plugins
+        plugins = list_plugins()
+        if not plugins:
+            console.print("[dim]No plugins installed. Add .py files to ~/.config/aulinx/plugins/[/dim]\n")
+        else:
+            console.print(f"\n[bold]{len(plugins)} plugin(s) installed:[/bold]")
+            for p in plugins:
+                status = "[green]enabled[/green]" if p.enabled else "[red]disabled[/red]"
+                version = f" v{p.version}" if p.version != "0.0.0" else ""
+                tools = f" ({len(p.tool_names)} tools)" if p.tool_names else ""
+                desc = f" — {p.description}" if p.description else ""
+                console.print(f"  {p.name}{version}{tools} [{status}]{desc}")
+            console.print()
+
     elif cmd == "/help":
         console.print("""
 [bold]Commands:[/bold]
   /tools    — List all available tools
   /context  — Show current desktop context
   /info     — Show system capabilities and mode
+  /plugins  — List installed plugins
   /history  — Show past conversation sessions
   /audit    — Show recent tool calls
   /doctor   — Check system dependencies
@@ -400,6 +421,8 @@ def main():
         agent.use_dynamic_tools = True
     if args.learn:
         agent.use_learning = True
+    if args.multi_agent:
+        agent.use_multi_agent = True
 
     if args.command:
         asyncio.run(run_command(agent, args.command))
