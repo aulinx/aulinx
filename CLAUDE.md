@@ -25,7 +25,7 @@ aulinx/
 ├── completer.py        — Tab completion for /commands and @tools
 ├── doctor.py           — Dependency diagnostics (aulinx --doctor)
 ├── mcp_server.py       — MCP server for Claude Desktop integration
-├── plugins.py          — Plugin system (~/.config/aulinx/plugins/)
+├── plugins.py          — Plugin system with manifest support (~/.config/aulinx/plugins/)
 ├── context/desktop.py  — AT-SPI + system state collector
 └── tools/
     ├── base.py         — Tool + Tier types, Ollama schema generation
@@ -56,7 +56,7 @@ aulinx/
 ## Dev Setup
 ```bash
 pip install -e ".[dev]"
-make test    # 296 tests (Linux-specific tests skip on other platforms)
+make test    # 301 tests (Linux-specific tests skip on other platforms)
 make lint    # ruff
 ```
 
