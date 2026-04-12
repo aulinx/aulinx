@@ -7,10 +7,11 @@ to control the desktop with structured actions.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 
-import httpx
+from aulinx.llm import create_client
 
 from .action_mapper import parse_response
 from .prompt_builder import build_prompt
@@ -40,13 +41,21 @@ class AulinxAgent:
     ):
         self.model = model
         self.base_url = base_url.rstrip("/")
-        self.api_type = api_type  # "ollama", "openai", "anthropic"
+        self.api_type = api_type  # "ollama", "openai", "anthropic", "gemini"
         self.max_tokens = max_tokens
         self.temperature = temperature
         self.max_trajectory_length = max_trajectory_length
         self.observation_type = observation_type
         self.action_space = action_space
         self.max_retries = max_retries
+
+        # Create shared LLM client
+        self._llm = create_client(
+            provider=api_type,
+            model=model,
+            base_url=base_url,
+            temperature=temperature,
+        )
 
         # State
         self.history: list[dict] = []
@@ -58,6 +67,9 @@ class AulinxAgent:
         """Reset agent state between tasks."""
         self.history = []
         self._step_count = 0
+        self.total_tokens_in = 0
+        self.total_tokens_out = 0
+        self.total_calls = 0
         if runtime_logger:
             logger.handlers = runtime_logger.handlers
 
@@ -86,7 +98,6 @@ class AulinxAgent:
         thought, action = parse_response(response_text)
 
         # Record history — include action taken and key UI state
-        # Track step count independently of history trimming
         self._step_count = getattr(self, '_step_count', 0) + 1
 
         from .prompt_builder import parse_a11y_tree
@@ -109,165 +120,46 @@ class AulinxAgent:
         return response_text, actions
 
     def _call_llm(self, messages: list[dict]) -> str:
-        """Call the LLM and return the response text."""
+        """Call the LLM using the shared client and return response text."""
         for attempt in range(self.max_retries):
             try:
-                if self.api_type == "ollama":
-                    return self._call_ollama(messages)
-                elif self.api_type == "openai":
-                    return self._call_openai(messages)
-                elif self.api_type == "anthropic":
-                    return self._call_anthropic(messages)
-                elif self.api_type == "gemini":
-                    return self._call_gemini(messages)
-                else:
-                    raise ValueError(f"Unknown api_type: {self.api_type}")
+                return self._call_llm_sync(messages)
             except Exception as e:
                 logger.warning("LLM call attempt %d/%d failed: %s", attempt + 1, self.max_retries, e)
                 if attempt < self.max_retries - 1:
-                    wait = min(3 * (2 ** attempt), 30)  # 3, 6, 12, 24, 30s
+                    wait = min(3 * (2 ** attempt), 30)
                     logger.info("Retrying in %ds...", wait)
                     time.sleep(wait)
                 else:
                     logger.error("All %d LLM call attempts failed", self.max_retries)
                     return "action: wait()\nthought: LLM call failed, waiting"
 
-    def _call_ollama(self, messages: list[dict]) -> str:
-        """Call Ollama's chat completion API."""
-        resp = httpx.post(
-            f"{self.base_url}/api/chat",
-            json={
-                "model": self.model,
-                "messages": messages,
-                "stream": False,
-                "options": {
-                    "temperature": self.temperature,
-                    "num_predict": self.max_tokens,
-                },
-            },
-            timeout=120,
-        )
-        resp.raise_for_status()
-        data = resp.json()
+    def _call_llm_sync(self, messages: list[dict]) -> str:
+        """Synchronous wrapper around the async LLM client."""
+        full_content = ""
 
-        # Track tokens
-        self.total_tokens_in += data.get("prompt_eval_count", 0)
-        self.total_tokens_out += data.get("eval_count", 0)
+        async def _run():
+            nonlocal full_content
+            async for event in self._llm.chat_with_tools(messages, []):
+                if event.type == "token":
+                    full_content += event.data.get("content", "")
+                elif event.type == "done":
+                    full_content = event.data.get("content", full_content)
+                elif event.type == "error":
+                    raise RuntimeError(event.data.get("message", "LLM error"))
 
-        return data["message"]["content"]
+        # Use existing event loop if available, otherwise create one
+        try:
+            asyncio.get_running_loop()
+            # If we're already in an async context, run in a new thread
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                pool.submit(lambda: asyncio.run(_run())).result(timeout=120)
+        except RuntimeError:
+            # No running loop — safe to use asyncio.run
+            asyncio.run(_run())
 
-    def _call_openai(self, messages: list[dict]) -> str:
-        """Call OpenAI-compatible chat completion API."""
-        headers = {}
-        api_key = self._get_env("OPENAI_API_KEY", "")
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
-
-        # Avoid double /v1 if base_url already ends with it
-        base = self.base_url.rstrip("/")
-        url = f"{base}/chat/completions" if base.endswith("/v1") else f"{base}/v1/chat/completions"
-
-        resp = httpx.post(
-            url,
-            headers=headers,
-            json={
-                "model": self.model,
-                "messages": messages,
-                "max_tokens": self.max_tokens,
-                "temperature": self.temperature,
-            },
-            timeout=120,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        usage = data.get("usage", {})
-        self.total_tokens_in += usage.get("prompt_tokens", 0)
-        self.total_tokens_out += usage.get("completion_tokens", 0)
-
-        content = data.get("choices", [{}])[0].get("message", {}).get("content")
-        if not content:
-            raise ValueError("API returned empty content")
-        return content
-
-    def _call_anthropic(self, messages: list[dict]) -> str:
-        """Call Anthropic's Messages API."""
-        import os
-        api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-
-        # Separate system message
-        system = ""
-        chat_messages = []
-        for msg in messages:
-            if msg["role"] == "system":
-                system = msg["content"]
-            else:
-                chat_messages.append(msg)
-
-        resp = httpx.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": api_key,
-                "anthropic-version": "2023-06-01",
-                "content-type": "application/json",
-            },
-            json={
-                "model": self.model,
-                "system": system,
-                "messages": chat_messages,
-                "max_tokens": self.max_tokens,
-                "temperature": self.temperature,
-            },
-            timeout=120,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        usage = data.get("usage", {})
-        self.total_tokens_in += usage.get("input_tokens", 0)
-        self.total_tokens_out += usage.get("output_tokens", 0)
-
-        return data["content"][0]["text"]
-
-    def _call_gemini(self, messages: list[dict]) -> str:
-        """Call Google Gemini API via the OpenAI-compatible endpoint."""
-        import os
-        api_key = os.environ.get("GEMINI_API_KEY", "") or os.environ.get("GOOGLE_API_KEY", "")
-
-        # Gemini supports OpenAI-compatible chat completions
-        base = self.base_url if self.base_url != "http://localhost:11434" \
-            else "https://generativelanguage.googleapis.com/v1beta/openai"
-
-        resp = httpx.post(
-            f"{base}/chat/completions",
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
-            json={
-                "model": self.model,
-                "messages": messages,
-                "max_tokens": self.max_tokens,
-                "temperature": self.temperature,
-            },
-            timeout=120,
-        )
-        resp.raise_for_status()
-        data = resp.json()
-
-        usage = data.get("usage", {})
-        self.total_tokens_in += usage.get("prompt_tokens", 0)
-        self.total_tokens_out += usage.get("completion_tokens", 0)
-
-        content = data.get("choices", [{}])[0].get("message", {}).get("content")
-        if not content:
-            raise ValueError("Gemini returned empty content (possible safety filter)")
-        return content
-
-    @staticmethod
-    def _get_env(key: str, default: str = "") -> str:
-        import os
-        return os.environ.get(key, default)
+        return full_content
 
     def get_token_stats(self) -> dict:
         """Return token usage statistics."""

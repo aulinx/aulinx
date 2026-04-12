@@ -11,8 +11,10 @@ from aulinx.context.desktop import DesktopContext
 from aulinx.grounding import ground_element_from_tree
 from aulinx.history import HistoryManager
 from aulinx.llm import LLMClient, create_client, strip_json_blocks
+from aulinx.outcomes import OutcomeStore, TaskOutcome
 from aulinx.planner import ExecutionPlan, build_planning_prompt, inject_plan_into_system, parse_plan
 from aulinx.recovery import RecoveryState
+from aulinx.summarizer import should_summarize, summarize_history
 from aulinx.tool_selector import select_tools
 from aulinx.tools.registry import ToolRegistry
 
@@ -108,8 +110,12 @@ class Agent:
         self.plan: ExecutionPlan | None = None
         self.use_planner: bool = False  # enable with --plan flag
         self.use_dynamic_tools: bool = False  # enable with --dynamic-tools flag
+        self.use_learning: bool = False  # enable with --learn flag
         self.recovery = RecoveryState()
+        self.outcomes = OutcomeStore()
         self._last_a11y_tree: str = ""  # cached for grounding
+        self._task_start: float = 0.0
+        self._task_actions: list[str] = []
 
     async def initialize(self):
         """Check Ollama is running and model is available."""
@@ -140,6 +146,8 @@ class Agent:
             self.history.append({"role": "user", "content": user_input})
             self.recovery.reset()
             self.plan = None
+            self._task_start = time.monotonic()
+            self._task_actions = []
 
         if not self.llm.available:
             ok = await self.llm.check()
@@ -160,15 +168,26 @@ class Agent:
         if memory_ctx:
             system_msg += f"\n\n{memory_ctx}"
 
+        # Inject past experience from outcomes (learning)
+        if self.use_learning and _depth == 0 and user_query:
+            experience = self.outcomes.build_experience_context(user_query)
+            if experience:
+                system_msg += f"\n\n{experience}"
+
         # Planning: generate a plan on first call, inject into system prompt on subsequent calls
         if self.use_planner and _depth == 0 and self.plan is None:
             await self._generate_plan(user_query, ctx)
         if self.plan and not self.plan.is_complete:
             system_msg = inject_plan_into_system(system_msg, self.plan)
 
+        # Summarize older history to save tokens
+        history_slice = self.history[-self.max_history:]
+        if should_summarize(history_slice):
+            history_slice = summarize_history(history_slice)
+
         messages = [
             {"role": "system", "content": system_msg},
-            *self.history[-self.max_history:],
+            *history_slice,
         ]
 
         # Dynamic tool selection: pick tools relevant to the query
@@ -220,6 +239,10 @@ class Agent:
             cleaned = strip_json_blocks(full_content)
             if cleaned:
                 console.print(cleaned)
+
+            # Record outcome when the agent gives a final text response (no more tool calls)
+            if self.use_learning and _depth > 0 and self._task_actions:
+                self._record_outcome(user_query, full_content)
 
         # Save to history
         history_entry = {"role": "assistant", "content": full_content or ""}
@@ -291,6 +314,7 @@ class Agent:
                 result_str = json.dumps(result, indent=2, ensure_ascii=False, default=str)
 
                 self.audit.log(tool_name, args, result_str, duration_ms)
+                self._task_actions.append(f"{tool_name}({_format_args(args)})")
 
                 if len(result_str) > 3000:
                     result_str = result_str[:3000] + "\n... (truncated)"
@@ -330,6 +354,37 @@ class Agent:
             # Let LLM process tool results
             await self.handle("", _depth=_depth + 1)
 
+
+    def _record_outcome(self, goal: str, final_response: str):
+        """Record the outcome of a completed task for future learning."""
+        # Heuristic: if the response contains error indicators, mark as failed
+        response_lower = final_response.lower()
+        failed_indicators = ["error", "failed", "couldn't", "unable", "cannot", "not possible"]
+        success = not any(ind in response_lower for ind in failed_indicators)
+
+        plan_steps = []
+        if self.plan:
+            plan_steps = [f"{s.number}. {s.tool} — {s.description}" for s in self.plan.steps]
+
+        failure_reason = ""
+        if not success:
+            # Extract first error from history
+            for msg in reversed(self.history):
+                content = msg.get("content", "")
+                if '"error"' in content:
+                    failure_reason = content[:200]
+                    break
+
+        outcome = TaskOutcome(
+            goal=goal,
+            plan_steps=plan_steps,
+            actions_taken=self._task_actions[:10],
+            success=success,
+            failure_reason=failure_reason,
+            duration_s=round(time.monotonic() - self._task_start, 1),
+            model=self.llm.model,
+        )
+        self.outcomes.record(outcome)
 
     def _try_ground_action(self, tool_name: str, args: dict) -> dict:
         """Try to ground element references in tool args to exact coordinates.

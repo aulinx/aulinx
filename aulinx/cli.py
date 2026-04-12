@@ -122,6 +122,11 @@ def parse_args() -> argparse.Namespace:
         help="Enable dynamic tool selection (picks tools relevant to each query instead of static set)",
     )
     parser.add_argument(
+        "--learn",
+        action="store_true",
+        help="Enable learning from outcomes (records task results, retrieves past experience for similar tasks)",
+    )
+    parser.add_argument(
         "--mode",
         choices=["auto", "core", "desktop", "compositor"],
         default="auto",
@@ -393,6 +398,8 @@ def main():
         agent.use_planner = True
     if args.dynamic_tools:
         agent.use_dynamic_tools = True
+    if args.learn:
+        agent.use_learning = True
 
     if args.command:
         asyncio.run(run_command(agent, args.command))
