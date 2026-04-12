@@ -127,7 +127,7 @@ def _validate_config(config: Config):
         config.context.max_history = 20
         warnings.append("max_history must be >= 1, reset to 20")
 
-    valid_providers = {"ollama", "openai", "anthropic", "gemini"}
+    valid_providers = {"ollama", "openai", "anthropic", "gemini", "qwen-cloud"}
     if config.llm.provider not in valid_providers:
         warnings.append(f"Unknown provider '{config.llm.provider}'. Valid: {valid_providers}")
         config.llm.provider = "ollama"

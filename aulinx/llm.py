@@ -266,7 +266,10 @@ class OpenAIClient(LLMClient):
     ):
         super().__init__(model, base_url, temperature, api_key)
         if not self.api_key:
-            self.api_key = os.environ.get("OPENAI_API_KEY", "")
+            self.api_key = (
+                os.environ.get("OPENAI_API_KEY", "")
+                or os.environ.get("DASHSCOPE_API_KEY", "")  # Qwen cloud
+            )
 
     async def check(self) -> bool:
         """Check if the API is reachable."""
@@ -691,6 +694,7 @@ PROVIDERS = {
     "openai": OpenAIClient,
     "anthropic": AnthropicClient,
     "gemini": GeminiClient,
+    "qwen-cloud": OpenAIClient,  # Dashscope OpenAI-compatible endpoint
 }
 
 
@@ -728,6 +732,11 @@ def create_client(
     elif provider == "gemini":
         model = model or "gemini-2.5-flash"
         base_url = base_url or "https://generativelanguage.googleapis.com/v1beta/openai"
+    elif provider == "qwen-cloud":
+        model = model or "qwen-max"
+        base_url = base_url or "https://dashscope.aliyuncs.com/compatible-mode/v1"
+        if not api_key:
+            api_key = os.environ.get("DASHSCOPE_API_KEY", "")
 
     return cls(model=model, base_url=base_url, temperature=temperature, api_key=api_key, **kwargs)
 

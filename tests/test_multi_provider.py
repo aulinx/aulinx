@@ -53,8 +53,14 @@ class TestCreateClient:
         except ValueError as e:
             assert "unknown" in str(e).lower()
 
+    def test_qwen_cloud(self):
+        client = create_client("qwen-cloud", api_key="test-key")
+        assert isinstance(client, OpenAIClient)
+        assert client.model == "qwen-max"
+        assert "dashscope" in client.base_url
+
     def test_all_are_llm_client(self):
-        for provider in ["ollama", "openai", "anthropic", "gemini"]:
+        for provider in ["ollama", "openai", "anthropic", "gemini", "qwen-cloud"]:
             client = create_client(provider, api_key="test")
             assert isinstance(client, LLMClient)
 

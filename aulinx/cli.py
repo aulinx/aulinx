@@ -72,7 +72,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--provider",
-        choices=["ollama", "openai", "anthropic", "gemini"],
+        choices=["ollama", "openai", "anthropic", "gemini", "qwen-cloud"],
         help="LLM provider (default: from config or 'ollama')",
     )
     parser.add_argument(

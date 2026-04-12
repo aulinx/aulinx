@@ -70,8 +70,8 @@ def parse_args():
 
     # Model profiles (shortcuts for common configurations)
     p.add_argument("--profile", type=str, default=None,
-                   choices=["local", "cloud", "best"],
-                   help="Model profile: local (Qwen/Ollama), cloud (Claude Sonnet), best (Claude Opus)")
+                   choices=["local", "cloud", "best", "qwen-cloud"],
+                   help="Model profile: local (Qwen/Ollama), qwen-cloud (Qwen Max/Dashscope), cloud (Claude Sonnet), best (Claude Opus)")
 
     # Modes
     p.add_argument("--dry-run", action="store_true",
@@ -494,6 +494,12 @@ MODEL_PROFILES = {
         "base_url": "http://localhost:11434",
         "api_type": "ollama",
         "max_tokens": 1024,
+    },
+    "qwen-cloud": {
+        "model": "qwen-max",
+        "base_url": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "api_type": "openai",
+        "max_tokens": 2048,
     },
     "cloud": {
         "model": "claude-sonnet-4-20250514",
