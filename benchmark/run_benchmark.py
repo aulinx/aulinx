@@ -61,12 +61,17 @@ def parse_args():
     p.add_argument("--max-tokens", type=int, default=1024)
 
     # Execution config
-    p.add_argument("--max-steps", type=int, default=20,
-                   help="Maximum steps per task")
+    p.add_argument("--max-steps", type=int, default=30,
+                   help="Maximum steps per task (default: 30)")
     p.add_argument("--sleep-after-execution", type=float, default=2.0,
                    help="Seconds to wait after each action")
     p.add_argument("--result-dir", type=str, default="benchmark/results",
                    help="Directory to store results")
+
+    # Model profiles (shortcuts for common configurations)
+    p.add_argument("--profile", type=str, default=None,
+                   choices=["local", "cloud", "best"],
+                   help="Model profile: local (Qwen/Ollama), cloud (Claude Sonnet), best (Claude Opus)")
 
     # Modes
     p.add_argument("--dry-run", action="store_true",
@@ -483,6 +488,51 @@ def _print_summary(summary: dict):
     print("=" * 60 + "\n")
 
 
+MODEL_PROFILES = {
+    "local": {
+        "model": "qwen2.5:14b",
+        "base_url": "http://localhost:11434",
+        "api_type": "ollama",
+        "max_tokens": 1024,
+    },
+    "cloud": {
+        "model": "claude-sonnet-4-20250514",
+        "base_url": "https://api.anthropic.com",
+        "api_type": "anthropic",
+        "max_tokens": 2048,
+    },
+    "best": {
+        "model": "claude-opus-4-20250514",
+        "base_url": "https://api.anthropic.com",
+        "api_type": "anthropic",
+        "max_tokens": 4096,
+    },
+}
+
+
+def _apply_profile(args):
+    """Apply model profile defaults — explicit CLI flags take priority."""
+    if not args.profile:
+        return
+    profile = MODEL_PROFILES[args.profile]
+    parser_defaults = parse_args.__wrapped_defaults__ if hasattr(parse_args, '__wrapped_defaults__') else {
+        "model": "qwen2.5:14b",
+        "base_url": "http://localhost:11434",
+        "api_type": "ollama",
+        "max_tokens": 1024,
+    }
+    # Only override if the user didn't explicitly set the flag
+    if args.model == parser_defaults.get("model", "qwen2.5:14b"):
+        args.model = profile["model"]
+    if args.base_url == parser_defaults.get("base_url", "http://localhost:11434"):
+        args.base_url = profile["base_url"]
+    if args.api_type == parser_defaults.get("api_type", "ollama"):
+        args.api_type = profile["api_type"]
+    if args.max_tokens == parser_defaults.get("max_tokens", 1024):
+        args.max_tokens = profile["max_tokens"]
+    logger.info("Using profile '%s': model=%s, api=%s", args.profile, args.model, args.api_type)
+
+
 def main():
     import os
 
@@ -496,6 +546,9 @@ def main():
                 os.environ.setdefault(key.strip(), value.strip())
 
     args = parse_args()
+
+    # Apply model profile defaults (CLI flags take priority)
+    _apply_profile(args)
 
     # Add vmrun to PATH if needed
     vmware_dirs = [
