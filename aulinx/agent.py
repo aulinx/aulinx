@@ -9,7 +9,9 @@ from rich.panel import Panel
 from aulinx.audit import AuditLog
 from aulinx.context.desktop import DesktopContext
 from aulinx.history import HistoryManager
-from aulinx.llm import OllamaClient, strip_json_blocks
+from aulinx.llm import LLMClient, create_client, strip_json_blocks
+from aulinx.planner import ExecutionPlan, build_planning_prompt, inject_plan_into_system, parse_plan
+from aulinx.recovery import RecoveryState
 from aulinx.tools.registry import ToolRegistry
 
 console = Console()
@@ -80,40 +82,60 @@ class Agent:
         temperature: float = 0.3,
         max_history: int = 20,
         mode: str = "desktop",
+        provider: str = "ollama",
+        api_key: str = "",
     ):
         self.model = model
         self.base_url = base_url
         self.temperature = temperature
         self.max_history = max_history
         self.mode = mode
+        self.provider = provider
         self.context = DesktopContext()
         self.tools = ToolRegistry(mode=mode)
         self.audit = AuditLog()
         self.history_mgr = HistoryManager()
         self.history: list[dict] = []
-        self.llm = OllamaClient(model, base_url, temperature)
+        self.llm: LLMClient = create_client(
+            provider=provider,
+            model=model,
+            base_url=base_url,
+            temperature=temperature,
+            api_key=api_key,
+        )
+        self.plan: ExecutionPlan | None = None
+        self.use_planner: bool = False  # enable with --plan flag
+        self.recovery = RecoveryState()
 
     async def initialize(self):
         """Check Ollama is running and model is available."""
         ok = await self.llm.check()
         if ok:
-            console.print(f"[dim]  Connected to Ollama ({self.model})[/dim]")
+            console.print(f"[dim]  Connected to {self.provider} ({self.llm.model})[/dim]")
         else:
-            console.print(
-                f"[yellow]Warning: Model '{self.model}' not found or Ollama not running.[/yellow]\n"
-                f"[dim]  Run: ollama serve && ollama pull {self.model}[/dim]"
-            )
+            if self.provider == "ollama":
+                console.print(
+                    f"[yellow]Warning: Model '{self.llm.model}' not found or Ollama not running.[/yellow]\n"
+                    f"[dim]  Run: ollama serve && ollama pull {self.llm.model}[/dim]"
+                )
+            else:
+                console.print(
+                    f"[yellow]Warning: Could not connect to {self.provider}.[/yellow]\n"
+                    f"[dim]  Check your API key and network connection.[/dim]"
+                )
 
         await self.context.initialize()
         console.print(f"[dim]  Desktop: {self.context.status()}[/dim]")
         console.print(f"[dim]  Tools: {len(self.tools)} registered[/dim]\n")
 
-    async def handle(self, user_input: str, _depth: int = 0, _last_tool_call: str = ""):
+    async def handle(self, user_input: str, _depth: int = 0):
         """Process a user message with streaming tool calling."""
         if _depth == 0:
             if not user_input:
                 return
             self.history.append({"role": "user", "content": user_input})
+            self.recovery.reset()
+            self.plan = None
 
         if not self.llm.available:
             ok = await self.llm.check()
@@ -133,6 +155,12 @@ class Agent:
         system_msg = SYSTEM_PROMPTS.get(self.mode, SYSTEM_PROMPTS["desktop"]) + f"\n\nSystem state:\n{ctx}"
         if memory_ctx:
             system_msg += f"\n\n{memory_ctx}"
+
+        # Planning: generate a plan on first call, inject into system prompt on subsequent calls
+        if self.use_planner and _depth == 0 and self.plan is None:
+            await self._generate_plan(user_query, ctx)
+        if self.plan and not self.plan.is_complete:
+            system_msg = inject_plan_into_system(system_msg, self.plan)
 
         messages = [
             {"role": "system", "content": system_msg},
@@ -191,14 +219,16 @@ class Agent:
                 args = fn.get("arguments", {})
 
                 # Prevent infinite retry of same failing tool
-                call_sig = f"{tool_name}:{json.dumps(args, sort_keys=True)}"
-                if call_sig == _last_tool_call:
-                    console.print("[yellow]Same tool call repeated — stopping to avoid loop.[/yellow]")
+                call_sig = json.dumps(args, sort_keys=True)
+                if self.recovery.is_repeated_call(tool_name, call_sig):
+                    hint = self.recovery.build_recovery_hint(tool_name, "Repeated call detected")
+                    console.print(f"[yellow]Repeated call — {hint}[/yellow]")
                     self.history.append({
                         "role": "tool",
-                        "content": json.dumps({"error": "Repeated call detected. Try a different approach."}),
+                        "content": json.dumps({"error": hint}),
                     })
                     continue
+                self.recovery.record_call(tool_name, call_sig)
 
                 if not tool_name or tool_name not in self.tools:
                     if tool_name:
@@ -246,10 +276,15 @@ class Agent:
 
                 is_error = isinstance(result, dict) and "error" in result
                 if is_error:
+                    self.recovery.record_failure(tool_name, call_sig, result_str[:200])
+                    hint = self.recovery.build_recovery_hint(tool_name, result_str[:200])
                     console.print(
                         Panel(result_str[:1000], title="[red]Error[/red]", border_style="red")
                     )
+                    # Inject recovery hint into tool result
+                    result_str = json.dumps({"error": result.get("error", ""), "recovery_hint": hint})
                 else:
+                    self.recovery.record_success()
                     console.print(
                         Panel(
                             result_str[:1000],
@@ -260,8 +295,42 @@ class Agent:
 
                 self.history.append({"role": "tool", "content": result_str})
 
-            # Let LLM process tool results (pass last call sig for duplicate detection)
-            await self.handle("", _depth=_depth + 1, _last_tool_call=call_sig)
+                # Advance plan if active
+                if self.plan and not self.plan.is_complete:
+                    if is_error:
+                        self.plan.fail_current(result_str[:200])
+                    else:
+                        self.plan.advance(result_str[:200])
+
+            # Let LLM process tool results
+            await self.handle("", _depth=_depth + 1)
+
+
+    async def _generate_plan(self, goal: str, context: str):
+        """Generate an execution plan using the LLM."""
+        tool_names = list(self.tools._tools.keys())
+        planning_prompt = build_planning_prompt(goal, tool_names, context)
+
+        messages = [
+            {"role": "system", "content": planning_prompt},
+            {"role": "user", "content": goal},
+        ]
+
+        plan_text = ""
+        async for event in self.llm.chat_with_tools(messages, []):
+            if event.type == "token":
+                plan_text += event.data.get("content", "")
+            elif event.type == "done":
+                plan_text = event.data.get("content", plan_text)
+
+        steps = parse_plan(plan_text)
+        if steps:
+            self.plan = ExecutionPlan(goal=goal, steps=steps)
+            console.print(f"\n[dim]Plan ({len(steps)} steps):[/dim]")
+            console.print(f"[dim]{self.plan.format_plan()}[/dim]\n")
+        else:
+            # Planning failed — fall back to direct execution
+            self.plan = None
 
 
 def _format_args(args: dict) -> str:

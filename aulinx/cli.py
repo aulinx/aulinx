@@ -68,7 +68,17 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--base-url",
-        help="Override the Ollama API URL",
+        help="Override the API base URL",
+    )
+    parser.add_argument(
+        "--provider",
+        choices=["ollama", "openai", "anthropic", "gemini"],
+        help="LLM provider (default: from config or 'ollama')",
+    )
+    parser.add_argument(
+        "--api-key",
+        dest="api_key",
+        help="API key for cloud providers (or use env vars: OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY)",
     )
     parser.add_argument(
         "--resume",
@@ -102,6 +112,11 @@ def parse_args() -> argparse.Namespace:
         help="Enable voice input (requires faster-whisper, sounddevice, numpy)",
     )
     parser.add_argument(
+        "--plan",
+        action="store_true",
+        help="Enable ReAct-style planning before tool execution (generates a step-by-step plan first)",
+    )
+    parser.add_argument(
         "--mode",
         choices=["auto", "core", "desktop", "compositor"],
         default="auto",
@@ -132,12 +147,15 @@ def parse_args() -> argparse.Namespace:
 
 def _build_agent(args: argparse.Namespace, mode: str = "desktop") -> Agent:
     config = load_config()
+    provider = getattr(args, "provider", None) or config.llm.provider
     return Agent(
         model=args.model or config.llm.model,
         base_url=args.base_url or config.llm.base_url,
         temperature=config.llm.temperature,
         max_history=config.context.max_history,
         mode=mode,
+        provider=provider,
+        api_key=getattr(args, "api_key", "") or config.llm.api_key,
     )
 
 
@@ -366,6 +384,8 @@ def main():
 
     mode = args.mode if args.mode != "auto" else detect_mode()
     agent = _build_agent(args, mode=mode)
+    if args.plan:
+        agent.use_planner = True
 
     if args.command:
         asyncio.run(run_command(agent, args.command))

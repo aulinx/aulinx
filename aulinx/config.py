@@ -10,10 +10,15 @@ DEFAULT_CONFIG = """\
 # Aulinx configuration
 
 [llm]
-# Model to use with Ollama
+# LLM provider: "ollama", "openai", "anthropic", "gemini"
+provider = "ollama"
+# Model name (provider-specific, leave empty for default)
 model = "qwen2.5:14b"
-# Ollama API base URL
+# API base URL (leave empty for provider default)
 base_url = "http://localhost:11434"
+# API key (only needed for cloud providers; can also use env vars:
+#   OPENAI_API_KEY, ANTHROPIC_API_KEY, GEMINI_API_KEY)
+# api_key = ""
 # Temperature (lower = more deterministic tool calls)
 temperature = 0.3
 
@@ -36,9 +41,11 @@ include_running_apps = true
 
 @dataclass
 class LLMConfig:
+    provider: str = "ollama"  # "ollama", "openai", "anthropic", "gemini"
     model: str = "qwen2.5:14b"
     base_url: str = "http://localhost:11434"
     temperature: float = 0.3
+    api_key: str = ""  # falls back to env vars per provider
     router_model: str = ""  # small fast model for intent routing (e.g. qwen2.5:3b)
     use_router: bool = False  # enable multi-model routing
 
@@ -80,9 +87,11 @@ def load_config() -> Config:
         # LLM settings
         if "llm" in data:
             llm = data["llm"]
+            config.llm.provider = llm.get("provider", config.llm.provider)
             config.llm.model = llm.get("model", config.llm.model)
             config.llm.base_url = llm.get("base_url", config.llm.base_url)
             config.llm.temperature = llm.get("temperature", config.llm.temperature)
+            config.llm.api_key = llm.get("api_key", config.llm.api_key)
 
         # Context settings
         if "context" in data:
@@ -117,6 +126,11 @@ def _validate_config(config: Config):
     if config.context.max_history < 1:
         config.context.max_history = 20
         warnings.append("max_history must be >= 1, reset to 20")
+
+    valid_providers = {"ollama", "openai", "anthropic", "gemini"}
+    if config.llm.provider not in valid_providers:
+        warnings.append(f"Unknown provider '{config.llm.provider}'. Valid: {valid_providers}")
+        config.llm.provider = "ollama"
 
     if not config.llm.base_url.startswith(("http://", "https://")):
         warnings.append(f"base_url '{config.llm.base_url}' should start with http:// or https://")
