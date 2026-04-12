@@ -16,6 +16,7 @@ aulinx/
 ├── tool_selector.py    — Dynamic tool selection based on task intent
 ├── summarizer.py       — History compression to reduce token usage
 ├── outcomes.py         — Learning from outcomes across sessions
+├── multi_agent.py      — Multi-agent task delegation + parallel execution
 ├── server.py           — WebSocket server for React UI palette
 ├── config.py           — ~/.config/aulinx/config.toml loader
 ├── audit.py            — JSONL audit log with secret redaction
@@ -55,7 +56,7 @@ aulinx/
 ## Dev Setup
 ```bash
 pip install -e ".[dev]"
-make test    # 276 tests (Linux-specific tests skip on other platforms)
+make test    # 296 tests (Linux-specific tests skip on other platforms)
 make lint    # ruff
 ```
 
