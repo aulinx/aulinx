@@ -1,14 +1,14 @@
 # Aulinx — AI-Native Linux Desktop
 
 ## Project Overview
-Aulinx is an AI agent with 207 tools that controls a Linux desktop through natural language. Uses AT-SPI (accessibility API) + custom Wayland compositor for semantic GUI control, with multi-provider LLM support (Ollama, OpenAI, Anthropic, Gemini).
+Aulinx is an AI agent with 207 tools that controls a Linux desktop through natural language. Uses AT-SPI (accessibility API) + custom Wayland compositor for semantic GUI control, with multi-provider LLM support (Ollama, OpenAI, Anthropic, Gemini, Qwen Cloud).
 
 ## Architecture
 ```
 aulinx/
 ├── cli.py              — Interactive REPL + one-shot + slash commands + --serve
 ├── agent.py            — Multi-provider LLM tool calling + planner + recovery + audit
-├── llm.py              — LLMClient abstraction: Ollama, OpenAI, Anthropic, Gemini
+├── llm.py              — LLMClient abstraction: Ollama, OpenAI, Anthropic, Gemini, Qwen
 ├── planner.py          — ReAct-style structured planning (3-8 step plans)
 ├── recovery.py         — Error recovery with tool alternatives + strategy fallback
 ├── perception.py       — Hybrid observation: semantic tree vs screenshot decision
@@ -17,8 +17,11 @@ aulinx/
 ├── summarizer.py       — History compression to reduce token usage
 ├── outcomes.py         — Learning from outcomes across sessions
 ├── multi_agent.py      — Multi-agent task delegation + parallel execution
+├── sdk.py              — Python SDK: AulinxClient for programmatic usage
+├── sandbox.py          — Sandboxed shell execution (bubblewrap/firejail)
+├── autonomous.py       — Autonomous mode: trigger-based desktop monitoring
 ├── server.py           — WebSocket server for React UI palette
-├── config.py           — ~/.config/aulinx/config.toml loader
+├── config.py           — ~/.config/aulinx/config.toml loader (llm, context, security)
 ├── audit.py            — JSONL audit log with secret redaction
 ├── history.py          — Session persistence + resume
 ├── long_memory.py      — Keyword-based RAG across sessions
@@ -39,7 +42,7 @@ aulinx/
 - **Compositor** (207 tools): + Custom Wayland compositor IPC, scene graph, input injection
 
 ## Key Patterns
-- **Multi-provider LLM**: `create_client(provider, model)` factory in `llm.py`. Supports Ollama, OpenAI, Anthropic, Gemini with streaming + tool calling.
+- **Multi-provider LLM**: `create_client(provider, model)` factory in `llm.py`. Supports Ollama, OpenAI, Anthropic, Gemini, Qwen Cloud (Dashscope) with streaming + tool calling.
 - **ReAct planning**: `planner.py` generates 3-8 step plans before tool execution, injects plan context into system prompt, re-plans after observations.
 - **Error recovery**: `recovery.py` tracks failures, suggests alternative tools (e.g., atspi_do_action → compositor_click), switches strategy after 3 consecutive failures.
 - **Hybrid perception**: `perception.py` decides per-step whether to use semantic tree, screenshot, or both based on app type and tree density.
@@ -47,17 +50,27 @@ aulinx/
 - **Dynamic tool selection**: `tool_selector.py` picks task-relevant tools instead of static CORE_TOOLS set. "manage files" → file tools, "browse web" → browser tools.
 - **History summarization**: `summarizer.py` compresses old conversation turns to reduce token usage (384K → ~150K tokens/task).
 - **Learning from outcomes**: `outcomes.py` records task results (goal, plan, actions, success/failure) and retrieves relevant past experience for similar future tasks.
+- **Multi-agent delegation**: `multi_agent.py` decomposes complex tasks into parallel subtasks, spawns worker agents, coordinates and merges results.
+- **SDK**: `from aulinx import AulinxClient` — programmatic API with `run()`, `execute_tool()`, `list_tools()`.
+- **Sandbox**: `sandbox.py` wraps shell_exec with bubblewrap or firejail for filesystem/network isolation. Configured via `[security]` in config.toml.
+- **Autonomous mode**: `autonomous.py` monitors desktop state and acts on triggers (battery, time, apps, disk usage) with cooldown and approval workflow.
 - **Native tool calling**: Agent sends `tools` array to LLM. Model returns structured `tool_calls`. Falls back to regex JSON extraction for models without tool support.
-- **Kwarg stripping**: `registry.execute()` uses `inspect.signature()` to strip hallucinated parameters before calling tool functions.
 - **Permission tiers**: OBSERVE (auto), LOW_RISK (auto+log), MUTATE (confirm once), DESTRUCTIVE (always confirm), IRREVERSIBLE (always + warning).
-- **Core tools**: ~50 most-used tools sent to LLM (fits in context window). All 207 still available via fallback.
-- **Tool schema**: `Tool.to_ollama_schema()` auto-generates OpenAI function calling JSON Schema from parameter descriptions.
 
 ## Dev Setup
 ```bash
 pip install -e ".[dev]"
-make test    # 301 tests (Linux-specific tests skip on other platforms)
+make test    # 358 tests (Linux-specific tests skip on other platforms)
 make lint    # ruff
+```
+
+## SDK Usage
+```python
+from aulinx import AulinxClient
+
+client = AulinxClient(provider="qwen-cloud")
+result = await client.run("list all running processes")
+print(result.response)
 ```
 
 ## Docker Desktop (for testing GUI)
@@ -73,9 +86,12 @@ docker compose -f docker/docker-compose.yml up
 python -m benchmark.run_benchmark --dry-run
 
 # With model profiles
-python -m benchmark.run_benchmark --profile cloud   # Claude Sonnet
-python -m benchmark.run_benchmark --profile best    # Claude Opus
-python -m benchmark.run_benchmark --profile local   # Qwen/Ollama
+python -m benchmark.run_benchmark --profile qwen-cloud  # Qwen Max (Dashscope)
+python -m benchmark.run_benchmark --profile cloud        # Claude Sonnet
+python -m benchmark.run_benchmark --profile best         # Claude Opus
+python -m benchmark.run_benchmark --profile local        # Qwen/Ollama
+
+# Latest result: 47.8% on OS domain (Qwen Max, 30 steps)
 ```
 
 ## Code Style

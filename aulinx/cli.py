@@ -102,6 +102,11 @@ def parse_args() -> argparse.Namespace:
         help="Run as background daemon with global hotkey (Super+Space) and ambient context",
     )
     parser.add_argument(
+        "--autonomous",
+        action="store_true",
+        help="Run in autonomous mode — monitor desktop and act on triggers (battery, time, apps, disk)",
+    )
+    parser.add_argument(
         "--mcp",
         action="store_true",
         help="Run as MCP server (stdio transport) for Claude Desktop or other AI clients",
@@ -402,6 +407,16 @@ def main():
     if args.daemon:
         from aulinx.daemon import run_daemon
         asyncio.run(run_daemon(port=args.port))
+        return
+
+    if args.autonomous:
+        from aulinx.autonomous import AutonomousLoop, TriggerStore
+        mode = args.mode if args.mode != "auto" else detect_mode()
+        agent = _build_agent(args, mode=mode)
+        store = TriggerStore()
+        loop = AutonomousLoop(agent=agent, triggers=store)
+        console.print("[bold]Autonomous mode[/bold] — monitoring triggers...\n")
+        asyncio.run(loop.run())
         return
 
     if args.serve:

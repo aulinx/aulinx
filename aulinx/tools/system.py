@@ -3,6 +3,7 @@
 import os
 import subprocess
 
+from aulinx.sandbox import SandboxConfig, sandbox_command
 from aulinx.tools.base import Tier, Tool
 
 
@@ -51,14 +52,34 @@ async def system_info() -> dict:
 
 
 async def shell_exec(command: str) -> dict:
-    """Execute a shell command and return output."""
+    """Execute a shell command and return output.
+
+    If sandbox is configured (via config.toml [security] section),
+    the command runs inside a bubblewrap or firejail sandbox.
+    """
+    # Load sandbox config if available
     try:
+        from aulinx.config import load_config
+        config = load_config()
+        sandbox_cfg = SandboxConfig(
+            enabled=config.security.sandbox_enabled,
+            backend=config.security.sandbox_backend,
+            allow_network=config.security.sandbox_allow_network,
+            allow_home_write=config.security.sandbox_allow_home_write,
+            timeout_s=config.security.sandbox_timeout_s,
+        )
+    except Exception:
+        sandbox_cfg = SandboxConfig()
+
+    timeout = sandbox_cfg.timeout_s if sandbox_cfg.enabled else 30
+
+    try:
+        cmd_argv = sandbox_command(command, sandbox_cfg)
         result = subprocess.run(
-            command,
-            shell=True,
+            cmd_argv,
             capture_output=True,
             text=True,
-            timeout=30,
+            timeout=timeout,
             cwd=os.path.expanduser("~"),
         )
         return {
@@ -67,7 +88,7 @@ async def shell_exec(command: str) -> dict:
             "exit_code": result.returncode,
         }
     except subprocess.TimeoutExpired:
-        return {"error": "Command timed out (30s)", "exit_code": -1}
+        return {"error": f"Command timed out ({timeout}s)", "exit_code": -1}
     except Exception as e:
         return {"error": str(e), "exit_code": -1}
 
