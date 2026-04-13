@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Literal
 
 CONFIG_DIR = Path.home() / ".config" / "aulinx"
 CONFIG_FILE = CONFIG_DIR / "config.toml"
@@ -36,6 +37,18 @@ max_history = 20
 include_clipboard = true
 # Include running apps in context
 include_running_apps = true
+
+[security]
+# Sandbox shell commands with bubblewrap or firejail
+sandbox_enabled = false
+# Backend: "bubblewrap", "firejail", or "none"
+sandbox_backend = "none"
+# Allow network access inside sandbox
+sandbox_allow_network = false
+# Allow writes to home directory inside sandbox
+sandbox_allow_home_write = false
+# Command timeout in seconds
+sandbox_timeout_s = 30
 """
 
 
@@ -58,9 +71,21 @@ class ContextConfig:
 
 
 @dataclass
+class SecurityConfig:
+    """Sandbox settings for shell command execution."""
+
+    sandbox_enabled: bool = False
+    sandbox_backend: Literal["bubblewrap", "firejail", "none"] = "none"
+    sandbox_allow_network: bool = False
+    sandbox_allow_home_write: bool = False
+    sandbox_timeout_s: int = 30
+
+
+@dataclass
 class Config:
     llm: LLMConfig = field(default_factory=LLMConfig)
     context: ContextConfig = field(default_factory=ContextConfig)
+    security: SecurityConfig = field(default_factory=SecurityConfig)
     permission_overrides: dict[str, str] = field(default_factory=dict)
 
 
@@ -99,6 +124,25 @@ def load_config() -> Config:
             config.context.max_history = ctx.get("max_history", config.context.max_history)
             config.context.include_clipboard = ctx.get("include_clipboard", config.context.include_clipboard)
             config.context.include_running_apps = ctx.get("include_running_apps", config.context.include_running_apps)
+
+        # Security settings
+        if "security" in data:
+            sec = data["security"]
+            config.security.sandbox_enabled = sec.get(
+                "sandbox_enabled", config.security.sandbox_enabled
+            )
+            config.security.sandbox_backend = sec.get(
+                "sandbox_backend", config.security.sandbox_backend
+            )
+            config.security.sandbox_allow_network = sec.get(
+                "sandbox_allow_network", config.security.sandbox_allow_network
+            )
+            config.security.sandbox_allow_home_write = sec.get(
+                "sandbox_allow_home_write", config.security.sandbox_allow_home_write
+            )
+            config.security.sandbox_timeout_s = sec.get(
+                "sandbox_timeout_s", config.security.sandbox_timeout_s
+            )
 
         # Permission overrides
         if "permissions" in data:

@@ -166,6 +166,8 @@ class OllamaClient(LLMClient):
         """Stream from Ollama with native tool calling."""
         full_content = ""
         tool_calls = None
+        input_tokens = 0
+        output_tokens = 0
 
         async with httpx.AsyncClient() as client:
             async with client.stream(
@@ -203,12 +205,21 @@ class OllamaClient(LLMClient):
                     if chunk.get("done"):
                         if chunk_tools:
                             tool_calls = chunk_tools
+                        # Ollama returns token counts in the final chunk
+                        input_tokens = chunk.get("prompt_eval_count", 0)
+                        output_tokens = chunk.get("eval_count", 0)
                         break
 
         if tool_calls:
             yield LLMEvent("tool_calls", calls=tool_calls)
 
-        yield LLMEvent("done", content=full_content, tool_calls=tool_calls)
+        yield LLMEvent(
+            "done",
+            content=full_content,
+            tool_calls=tool_calls,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+        )
 
     async def _stream_text_fallback(
         self,
@@ -216,6 +227,8 @@ class OllamaClient(LLMClient):
     ) -> AsyncIterator[LLMEvent]:
         """Fallback: stream without tools, extract JSON tool calls from text."""
         full_content = ""
+        input_tokens = 0
+        output_tokens = 0
 
         async with httpx.AsyncClient() as client:
             async with client.stream(
@@ -240,6 +253,9 @@ class OllamaClient(LLMClient):
                             full_content += token
                             if "```json" not in full_content:
                                 yield LLMEvent("token", content=token)
+                        if chunk.get("done"):
+                            input_tokens = chunk.get("prompt_eval_count", 0)
+                            output_tokens = chunk.get("eval_count", 0)
                     except json.JSONDecodeError:
                         continue
 
@@ -248,9 +264,9 @@ class OllamaClient(LLMClient):
             name, args = tool_call
             tool_calls = [{"function": {"name": name, "arguments": args}}]
             yield LLMEvent("tool_calls", calls=tool_calls)
-            yield LLMEvent("done", content=full_content, tool_calls=tool_calls)
+            yield LLMEvent("done", content=full_content, tool_calls=tool_calls, input_tokens=input_tokens, output_tokens=output_tokens)
         else:
-            yield LLMEvent("done", content=full_content, tool_calls=None)
+            yield LLMEvent("done", content=full_content, tool_calls=None, input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 class OpenAIClient(LLMClient):
@@ -325,12 +341,15 @@ class OpenAIClient(LLMClient):
     ) -> AsyncIterator[LLMEvent]:
         full_content = ""
         tool_calls_accum: dict[int, dict] = {}  # index -> {id, name, arguments_str}
+        input_tokens = 0
+        output_tokens = 0
 
         body: dict = {
             "model": self.model,
             "messages": _clean_messages_for_openai(messages),
             "temperature": self.temperature,
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
         if tools:
             body["tools"] = tools
@@ -357,6 +376,12 @@ class OpenAIClient(LLMClient):
                         chunk = json.loads(data_str)
                     except json.JSONDecodeError:
                         continue
+
+                    # Extract usage from the final chunk
+                    usage = chunk.get("usage")
+                    if usage:
+                        input_tokens = usage.get("prompt_tokens", 0)
+                        output_tokens = usage.get("completion_tokens", 0)
 
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
 
@@ -396,9 +421,9 @@ class OpenAIClient(LLMClient):
                     "function": {"name": tc["name"], "arguments": args}
                 })
             yield LLMEvent("tool_calls", calls=tool_calls)
-            yield LLMEvent("done", content=full_content, tool_calls=tool_calls)
+            yield LLMEvent("done", content=full_content, tool_calls=tool_calls, input_tokens=input_tokens, output_tokens=output_tokens)
         else:
-            yield LLMEvent("done", content=full_content, tool_calls=None)
+            yield LLMEvent("done", content=full_content, tool_calls=None, input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 class AnthropicClient(LLMClient):
@@ -491,6 +516,8 @@ class AnthropicClient(LLMClient):
         current_tool_input = ""
         current_tool_name = ""
         current_tool_id = ""
+        input_tokens = 0
+        output_tokens = 0
 
         async with httpx.AsyncClient() as client:
             async with client.stream(
@@ -515,7 +542,15 @@ class AnthropicClient(LLMClient):
 
                     event_type = event.get("type", "")
 
-                    if event_type == "content_block_start":
+                    if event_type == "message_start":
+                        usage = event.get("message", {}).get("usage", {})
+                        input_tokens = usage.get("input_tokens", 0)
+
+                    elif event_type == "message_delta":
+                        usage = event.get("usage", {})
+                        output_tokens = usage.get("output_tokens", 0)
+
+                    elif event_type == "content_block_start":
                         block = event.get("content_block", {})
                         if block.get("type") == "tool_use":
                             current_tool_name = block.get("name", "")
@@ -547,9 +582,9 @@ class AnthropicClient(LLMClient):
 
         if tool_calls:
             yield LLMEvent("tool_calls", calls=tool_calls)
-            yield LLMEvent("done", content=full_content, tool_calls=tool_calls)
+            yield LLMEvent("done", content=full_content, tool_calls=tool_calls, input_tokens=input_tokens, output_tokens=output_tokens)
         else:
-            yield LLMEvent("done", content=full_content, tool_calls=None)
+            yield LLMEvent("done", content=full_content, tool_calls=None, input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 class GeminiClient(LLMClient):
@@ -621,12 +656,15 @@ class GeminiClient(LLMClient):
         """Stream using Gemini's OpenAI-compatible endpoint."""
         full_content = ""
         tool_calls_accum: dict[int, dict] = {}
+        input_tokens = 0
+        output_tokens = 0
 
         body: dict = {
             "model": self.model,
             "messages": _clean_messages_for_openai(messages),
             "temperature": self.temperature,
             "stream": True,
+            "stream_options": {"include_usage": True},
         }
         if tools:
             body["tools"] = tools
@@ -653,6 +691,12 @@ class GeminiClient(LLMClient):
                         chunk = json.loads(data_str)
                     except json.JSONDecodeError:
                         continue
+
+                    # Extract usage from the final chunk
+                    usage = chunk.get("usage")
+                    if usage:
+                        input_tokens = usage.get("prompt_tokens", 0)
+                        output_tokens = usage.get("completion_tokens", 0)
 
                     delta = chunk.get("choices", [{}])[0].get("delta", {})
                     token = delta.get("content", "")
@@ -682,9 +726,9 @@ class GeminiClient(LLMClient):
                     args = {}
                 tool_calls.append({"function": {"name": tc["name"], "arguments": args}})
             yield LLMEvent("tool_calls", calls=tool_calls)
-            yield LLMEvent("done", content=full_content, tool_calls=tool_calls)
+            yield LLMEvent("done", content=full_content, tool_calls=tool_calls, input_tokens=input_tokens, output_tokens=output_tokens)
         else:
-            yield LLMEvent("done", content=full_content, tool_calls=None)
+            yield LLMEvent("done", content=full_content, tool_calls=None, input_tokens=input_tokens, output_tokens=output_tokens)
 
 
 # --- Provider factory ---

@@ -208,6 +208,8 @@ class AulinxAgent:
                     full_content += event.data.get("content", "")
                 elif event.type == "done":
                     full_content = event.data.get("content", full_content)
+                    self.total_tokens_in += event.data.get("input_tokens", 0)
+                    self.total_tokens_out += event.data.get("output_tokens", 0)
                 elif event.type == "error":
                     raise RuntimeError(event.data.get("message", "LLM error"))
 
