@@ -236,8 +236,16 @@ def build_prompt(instruction: str, a11y_tree: str, screenshot_desc: str | None =
         history_block += "\n\nDo NOT repeat the same action. Try a DIFFERENT approach if the screen hasn't changed."
         history_block += "\nUse the center= coordinates shown above for clicks — they are pre-computed for you."
 
+    # Inject domain-specific recipes if we have expert knowledge for this task
+    recipe_block = ""
+    if not history:  # Only on first step — don't repeat every step
+        from .gnome_knowledge import build_file_recipe_prompt, build_recipe_prompt
+        recipe_block = build_recipe_prompt(instruction) or build_file_recipe_prompt(instruction)
+
     # Current observation
     obs_parts = [f"## Task\n{instruction}\n"]
+    if recipe_block:
+        obs_parts.append(recipe_block)
     obs_parts.append(f"## Current Screen (Accessibility Tree)\n{parsed_tree}")
     if history_block:
         obs_parts.append(history_block)
