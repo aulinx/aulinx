@@ -67,14 +67,14 @@ TASK_RECIPES: list[tuple[str, list[str], list[str], str]] = [
         "gsettings get org.gnome.desktop.notifications show-banners",
     ),
 
-    # Favorites / dock
+    # Favorites / dock — remove a specific app
     (
         r"remove.*favorite|favorite.*app|dock.*remove|unfavorite",
         ["favorite", "dock", "remove"],
         [
-            # First get current favorites, then modify
-            "gsettings get org.gnome.shell favorite-apps",
-            # Then: gsettings set org.gnome.shell favorite-apps "['app1.desktop', ...]"
+            # One-liner: get favorites, remove the target app, set back
+            # The agent should identify the app name from the instruction
+            "python3 -c \"import subprocess,ast; apps=ast.literal_eval(subprocess.check_output(['gsettings','get','org.gnome.shell','favorite-apps'],text=True).strip()); apps=[a for a in apps if '{app_name}' not in a]; subprocess.run(['gsettings','set','org.gnome.shell','favorite-apps',str(apps)])\"",
         ],
         "gsettings get org.gnome.shell favorite-apps",
     ),
@@ -146,16 +146,22 @@ TASK_RECIPES: list[tuple[str, list[str], list[str], str]] = [
         "powerprofilesctl get",
     ),
 
-    # SSH user creation
+    # SSH user creation with folder restriction
     (
         r"ssh.*user|create.*user.*ssh|user.*sftp|restrict.*ssh",
         ["ssh", "user", "create", "restrict"],
         [
-            "sudo useradd -m -s /bin/bash {username}",
+            "sudo useradd -m -d {homedir} -s /bin/bash {username}",
             "echo '{username}:{password}' | sudo chpasswd",
-            # For restricted access, configure sshd
+            "sudo chown root:root {homedir}",
+            "sudo chmod 755 {homedir}",
+            "sudo mkdir -p {homedir}/files",
+            "sudo chown {username}:{username} {homedir}/files",
+            # Restrict to SFTP with chroot
+            "echo 'Match User {username}\n    ChrootDirectory {homedir}\n    ForceCommand internal-sftp\n    AllowTcpForwarding no\n    X11Forwarding no' | sudo tee -a /etc/ssh/sshd_config",
+            "sudo systemctl restart sshd",
         ],
-        "getent passwd {username}",
+        "getent passwd {username} && sudo grep '{username}' /etc/ssh/sshd_config",
     ),
 ]
 
@@ -182,18 +188,60 @@ def find_recipe(instruction: str) -> dict | None:
     return None
 
 
+def _extract_variables(instruction: str) -> dict[str, str]:
+    """Extract variable values from the instruction text.
+
+    Identifies app names, usernames, passwords, paths, etc.
+    """
+    variables: dict[str, str] = {}
+    lower = instruction.lower()
+
+    # Extract app name: "install Spotify" → app_name=spotify
+    install_match = re.search(r"install\s+(\w+)", lower)
+    if install_match:
+        variables["app_name"] = install_match.group(1)
+
+    # Extract app to remove from favorites: "remove vim from"
+    remove_match = re.search(r"remove\s+(\w+)\s+from", lower)
+    if remove_match:
+        variables["app_name"] = remove_match.group(1)
+
+    # Extract username: 'named "charles"' or "named 'charles'"
+    user_match = re.search(r'named\s+["\']?(\w+)["\']?', instruction)
+    if user_match:
+        variables["username"] = user_match.group(1)
+
+    # Extract password: 'password "X"' or "password 'X'"
+    pass_match = re.search(r'password\s+["\']([^"\']+)["\']', instruction)
+    if pass_match:
+        variables["password"] = pass_match.group(1)
+
+    # Extract path: '/home/test1' or '/tmp/something'
+    path_match = re.search(r'(?:folder|directory|path)\s+["\']?(/[\w/]+)["\']?', instruction)
+    if path_match:
+        variables["homedir"] = path_match.group(1)
+
+    return variables
+
+
 def build_recipe_prompt(instruction: str) -> str:
     """Build a targeted prompt section with exact commands for a task.
 
     If we have a recipe for this task, inject the exact commands
     into the prompt so the agent doesn't waste steps navigating GUIs.
+    Variables like {app_name} are substituted from the instruction.
     """
     recipe = find_recipe(instruction)
     if not recipe:
         return ""
 
+    variables = _extract_variables(instruction)
     commands = recipe["commands"]
     verify = recipe["verify"]
+
+    # Substitute variables
+    commands = [_substitute(cmd, variables) for cmd in commands]
+    verify = _substitute(verify, variables)
 
     lines = [
         "\n## Recommended Approach (expert knowledge)",
@@ -212,6 +260,13 @@ def build_recipe_prompt(instruction: str) -> str:
     lines.append("After verification succeeds: done()")
 
     return "\n".join(lines)
+
+
+def _substitute(template: str, variables: dict[str, str]) -> str:
+    """Substitute {var} placeholders with extracted values."""
+    for key, value in variables.items():
+        template = template.replace(f"{{{key}}}", value)
+    return template
 
 
 # File operation recipes (not gsettings but still common failures)
@@ -258,16 +313,20 @@ def build_file_recipe_prompt(instruction: str) -> str:
     if not recipe:
         return ""
 
+    variables = _extract_variables(instruction)
+    commands = [_substitute(cmd, variables) for cmd in recipe["commands"]]
+    verify = _substitute(recipe.get("verify", ""), variables)
+
     lines = [
         "\n## Recommended Approach (expert knowledge)",
         "For this file operation, use these terminal commands:",
         "",
     ]
-    for i, cmd in enumerate(recipe["commands"], 1):
+    for i, cmd in enumerate(commands, 1):
         lines.append(f"{i}. type(text=\"{cmd}\") then press(key=\"enter\")")
 
-    if recipe.get("verify"):
-        lines.append(f"\nTo verify: type(text=\"{recipe['verify']}\") then press(key=\"enter\")")
+    if verify:
+        lines.append(f"\nTo verify: type(text=\"{verify}\") then press(key=\"enter\")")
 
     lines.append("")
     lines.append("Open terminal first: hotkey(keys=[\"ctrl\",\"alt\",\"t\"])")

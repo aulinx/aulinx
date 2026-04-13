@@ -1,6 +1,7 @@
 """Tests for GNOME knowledge base and recipe matching."""
 
 from benchmark.gnome_knowledge import (
+    _extract_variables,
     build_file_recipe_prompt,
     build_recipe_prompt,
     find_file_recipe,
@@ -84,6 +85,41 @@ class TestBuildRecipePrompt:
 
     def test_empty_for_unknown(self):
         assert build_recipe_prompt("random task") == ""
+
+
+class TestExtractVariables:
+    def test_install_app(self):
+        v = _extract_variables("Install Spotify on my system")
+        assert v["app_name"] == "spotify"
+
+    def test_remove_favorite(self):
+        v = _extract_variables("Remove vim from favorite apps")
+        assert v["app_name"] == "vim"
+
+    def test_ssh_user(self):
+        v = _extract_variables('Create SSH user named "charles" with password "Ex@mpleP@55w0rd!" on Ubuntu who is only allowed to access the folder "/home/test1"')
+        assert v["username"] == "charles"
+        assert v["password"] == "Ex@mpleP@55w0rd!"
+        assert v["homedir"] == "/home/test1"
+
+    def test_empty(self):
+        v = _extract_variables("What time is it?")
+        assert v == {}
+
+
+class TestBuildRecipePromptWithVariables:
+    def test_install_substitutes_app(self):
+        prompt = build_recipe_prompt("Install Spotify on my system")
+        assert "spotify" in prompt
+
+    def test_ssh_substitutes_user(self):
+        prompt = build_recipe_prompt('Create SSH user named "charles" with password "test123" who is only allowed to access the folder "/home/test1"')
+        assert "charles" in prompt
+        assert "test123" in prompt
+
+    def test_remove_favorite_substitutes_app(self):
+        prompt = build_recipe_prompt("Remove vim from favorite apps")
+        assert "vim" in prompt
 
 
 class TestBuildFileRecipePrompt:
