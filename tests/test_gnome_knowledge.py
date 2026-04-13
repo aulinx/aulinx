@@ -102,6 +102,11 @@ class TestExtractVariables:
         assert v["password"] == "Ex@mpleP@55w0rd!"
         assert v["homedir"] == "/home/test1"
 
+    def test_rename_dir(self):
+        v = _extract_variables('I have a directory named "todo_list_Jan_1". Can you help me change its name into "todo_list_Jan_2"?')
+        assert v["old_name"] == "todo_list_Jan_1"
+        assert v["new_name"] == "todo_list_Jan_2"
+
     def test_empty(self):
         v = _extract_variables("What time is it?")
         assert v == {}

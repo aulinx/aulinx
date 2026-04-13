@@ -206,8 +206,8 @@ def _extract_variables(instruction: str) -> dict[str, str]:
     if remove_match:
         variables["app_name"] = remove_match.group(1)
 
-    # Extract username: 'named "charles"' or "named 'charles'"
-    user_match = re.search(r'named\s+["\']?(\w+)["\']?', instruction)
+    # Extract username: 'user named "charles"' — only when "user" precedes "named"
+    user_match = re.search(r'user\s+named\s+["\']?(\w+)["\']?', instruction, re.IGNORECASE)
     if user_match:
         variables["username"] = user_match.group(1)
 
@@ -220,6 +220,25 @@ def _extract_variables(instruction: str) -> dict[str, str]:
     path_match = re.search(r'(?:folder|directory|path)\s+["\']?(/[\w/]+)["\']?', instruction)
     if path_match:
         variables["homedir"] = path_match.group(1)
+
+    # Extract old/new names for rename tasks
+    # Priority 1: 'named "X" ... into "Y"' (quoted names are most reliable)
+    dir_match = re.search(r'named\s+"([\w_.-]+)"', instruction)
+    into_match = re.search(r'(?:into|to)\s+"([\w_.-]+)"', instruction)
+    if dir_match and into_match:
+        variables["old_name"] = dir_match.group(1)
+        variables["new_name"] = into_match.group(1)
+
+    # Priority 2: 'rename "X" to "Y"' (explicit rename command)
+    if "old_name" not in variables:
+        rename_match = re.search(
+            r'(?:rename)\s+["\']?([\w_.-]+)["\']?\s+(?:to)\s+["\']?([\w_.-]+)["\']?',
+            instruction,
+            re.IGNORECASE,
+        )
+        if rename_match:
+            variables["old_name"] = rename_match.group(1)
+            variables["new_name"] = rename_match.group(2)
 
     return variables
 
@@ -270,6 +289,17 @@ def _substitute(template: str, variables: dict[str, str]) -> str:
 
 
 # File operation recipes (not gsettings but still common failures)
+# Simple but commonly failed tasks
+SIMPLE_RECIPES = {
+    "rename_dir": {
+        "pattern": r"rename|change.*name|mv\s",
+        "commands": [
+            "mv ~/Desktop/{old_name} ~/Desktop/{new_name}",
+        ],
+        "verify": "ls ~/Desktop/{new_name}",
+    },
+}
+
 FILE_RECIPES = {
     "copy_jpg": {
         "pattern": r"copy.*\.jpg|\.jpg.*copy|copy.*photo",
@@ -302,6 +332,9 @@ def find_file_recipe(instruction: str) -> dict | None:
     """Find a file operation recipe."""
     instruction_lower = instruction.lower()
     for name, recipe in FILE_RECIPES.items():
+        if re.search(recipe["pattern"], instruction_lower):
+            return recipe
+    for name, recipe in SIMPLE_RECIPES.items():
         if re.search(recipe["pattern"], instruction_lower):
             return recipe
     return None
