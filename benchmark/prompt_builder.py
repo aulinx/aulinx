@@ -74,6 +74,16 @@ Do NOT output multiple actions. Do NOT output anything else.
 7. Output done() as soon as the task objective is visibly achieved
 8. Output fail() if you've tried 5+ different approaches without progress — do NOT exhaust all steps
 
+## Self-correction rules
+
+1. After EVERY action, compare the new screen state to the previous one
+2. If the screen state is IDENTICAL after your action, your action had no effect — try something different
+3. If a terminal command produced an error, read the error message and fix the command
+4. If you've been clicking the same area 3+ times with no change, switch to keyboard shortcuts
+5. For settings changes: ALWAYS prefer terminal commands (gsettings/dconf) over GUI navigation
+6. After completing the task, call done() IMMEDIATELY — do not continue with unnecessary verification steps
+7. If the task asks to change a setting, change it and call done(). You don't need to visually confirm.
+
 ## Terminal usage
 
 When using the terminal:
@@ -207,7 +217,7 @@ def _parse_tuple(s: str) -> tuple[int, int] | None:
 
 
 def build_prompt(instruction: str, a11y_tree: str, screenshot_desc: str | None = None,
-                 history: list[dict] | None = None) -> list[dict]:
+                 history: list[dict] | None = None, max_steps: int = 30) -> list[dict]:
     """Build the full message list for the LLM.
 
     Returns a list of message dicts suitable for chat completion APIs.
@@ -239,11 +249,25 @@ def build_prompt(instruction: str, a11y_tree: str, screenshot_desc: str | None =
     # Inject domain-specific recipes if we have expert knowledge for this task
     recipe_block = ""
     if not history:  # Only on first step — don't repeat every step
+        from .chrome_knowledge import build_chrome_recipe_prompt
         from .gnome_knowledge import build_file_recipe_prompt, build_recipe_prompt
-        recipe_block = build_recipe_prompt(instruction) or build_file_recipe_prompt(instruction)
+        from .vscode_knowledge import build_vscode_recipe_prompt
+        recipe_block = (
+            build_recipe_prompt(instruction)
+            or build_chrome_recipe_prompt(instruction)
+            or build_vscode_recipe_prompt(instruction)
+            or build_file_recipe_prompt(instruction)
+        )
+
+    # Step counter — helps the LLM manage its budget
+    step_num = len(history) + 1 if history else 1
+    steps_remaining = max_steps - step_num + 1
 
     # Current observation
-    obs_parts = [f"## Task\n{instruction}\n"]
+    step_info = f"[Step {step_num}/{max_steps} — {steps_remaining} remaining]"
+    if steps_remaining <= 5:
+        step_info += " ⚠ Running low on steps! Finish the task or call done()/fail() soon."
+    obs_parts = [f"## Task\n{instruction}\n{step_info}\n"]
     if recipe_block:
         obs_parts.append(recipe_block)
     obs_parts.append(f"## Current Screen (Accessibility Tree)\n{parsed_tree}")
