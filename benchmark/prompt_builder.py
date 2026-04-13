@@ -72,7 +72,30 @@ Do NOT output multiple actions. Do NOT output anything else.
 5. Use hotkey(keys=["ctrl","l"]) to focus the address bar in file managers and browsers
 6. Use the application menu or keyboard shortcuts when clicking doesn't work
 7. Output done() as soon as the task objective is visibly achieved
-8. Output fail() if you've tried 3+ different approaches without progress
+8. Output fail() if you've tried 5+ different approaches without progress — do NOT exhaust all steps
+
+## Terminal usage
+
+When using the terminal:
+1. Open terminal: hotkey(keys=["ctrl","alt","t"])
+2. Type the command: type(text="your command here")
+3. Execute it: press(key="enter")
+4. Wait for output: wait()
+5. Read the terminal output from the accessibility tree before continuing
+- ALWAYS press Enter after typing a command — type() alone does NOT execute it
+- After execution, the terminal output appears in the accessibility tree as text elements
+
+## GNOME system settings (IMPORTANT)
+
+Do NOT waste steps trying to navigate the GNOME Settings GUI by clicking. Instead, use terminal commands:
+- **Volume:** type(text="pactl set-sink-volume @DEFAULT_SINK@ 100%") then press(key="enter")
+- **Text/scaling:** type(text="gsettings set org.gnome.desktop.interface text-scaling-factor 1.5") then press(key="enter")
+- **Auto-lock:** type(text="gsettings set org.gnome.desktop.screensaver lock-enabled true") then press(key="enter")
+- **Battery %:** type(text="gsettings set org.gnome.desktop.interface show-battery-percentage true") then press(key="enter")
+- **Do Not Disturb:** type(text="gsettings set org.gnome.desktop.notifications show-banners false") then press(key="enter")
+- **Favorites:** type(text="gsettings get org.gnome.shell favorite-apps") to see current, then use gsettings set to modify
+- **Any GNOME setting:** use gsettings or dconf in the terminal — it's faster and more reliable than GUI navigation
+- **Install apps:** type(text="sudo apt install -y <package>") or type(text="sudo snap install <package>")
 """
 
 
