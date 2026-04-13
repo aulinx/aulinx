@@ -251,11 +251,13 @@ def build_prompt(instruction: str, a11y_tree: str, screenshot_desc: str | None =
     if not history:  # Only on first step — don't repeat every step
         from .chrome_knowledge import build_chrome_recipe_prompt
         from .gnome_knowledge import build_file_recipe_prompt, build_recipe_prompt
+        from .libreoffice_knowledge import build_libreoffice_recipe_prompt
         from .vscode_knowledge import build_vscode_recipe_prompt
         recipe_block = (
             build_recipe_prompt(instruction)
             or build_chrome_recipe_prompt(instruction)
             or build_vscode_recipe_prompt(instruction)
+            or build_libreoffice_recipe_prompt(instruction)
             or build_file_recipe_prompt(instruction)
         )
 
