@@ -74,6 +74,17 @@ Do NOT output multiple actions. Do NOT output anything else.
 7. Output done() as soon as the task objective is visibly achieved
 8. Output fail() if you've tried 5+ different approaches without progress — do NOT exhaust all steps
 
+## Multi-app workflow strategy
+
+When a task involves multiple applications:
+1. Break it into sub-tasks mentally: "First do X in App1, then Y in App2"
+2. Complete one app's work fully before switching to the next
+3. Use Alt+Tab to switch between windows, or click the target window in the taskbar
+4. Use the terminal for file operations between apps (copy, convert, move)
+5. For file format conversions: use libreoffice --headless --convert-to pdf file.docx
+6. To copy text between apps: Ctrl+C in source, Alt+Tab to target, Ctrl+V
+7. To open a file in a specific app: use the terminal (e.g., libreoffice file.docx, gimp image.png)
+
 ## Self-correction rules
 
 1. After EVERY action, compare the new screen state to the previous one
