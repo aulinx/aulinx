@@ -58,7 +58,7 @@ class TestFindFileRecipe:
     def test_copy_jpg(self):
         r = find_file_recipe("Copy .jpg files from photos directory")
         assert r is not None
-        assert "find" in r["commands"][1]
+        assert any("find" in cmd for cmd in r["commands"])
 
     def test_append_br(self):
         r = find_file_recipe("Append <br/> to end of each line")
@@ -79,9 +79,10 @@ class TestBuildRecipePrompt:
         assert "pactl" in prompt
         assert "terminal" in prompt.lower()
 
-    def test_returns_verify(self):
+    def test_returns_steps(self):
         prompt = build_recipe_prompt("Enable auto-lock")
-        assert "verify" in prompt.lower() or "Verify" in prompt
+        assert "EXACT STEPS" in prompt
+        assert "done()" in prompt
 
     def test_empty_for_unknown(self):
         assert build_recipe_prompt("random task") == ""

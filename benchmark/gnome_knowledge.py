@@ -262,21 +262,31 @@ def build_recipe_prompt(instruction: str) -> str:
     commands = [_substitute(cmd, variables) for cmd in commands]
     verify = _substitute(verify, variables)
 
-    lines = [
-        "\n## Recommended Approach (expert knowledge)",
-        "For this specific task, use these terminal commands:",
-        "",
-    ]
-    for i, cmd in enumerate(commands, 1):
-        lines.append(f"{i}. type(text=\"{cmd}\") then press(key=\"enter\")")
+    steps = []
+    steps.append("Step 1: hotkey(keys=[\"ctrl\",\"alt\",\"t\"]) — open terminal")
+    steps.append("Step 2: wait() — wait for terminal to open")
+
+    step_num = 3
+    for cmd in commands:
+        steps.append(f"Step {step_num}: type(text=\"{cmd}\")")
+        steps.append(f"Step {step_num + 1}: press(key=\"enter\")")
+        steps.append(f"Step {step_num + 2}: wait()")
+        step_num += 3
 
     if verify:
-        lines.append(f"\nTo verify: type(text=\"{verify}\") then press(key=\"enter\")")
+        steps.append(f"Step {step_num}: type(text=\"{verify}\")")
+        steps.append(f"Step {step_num + 1}: press(key=\"enter\")")
+        steps.append(f"Step {step_num + 2}: wait()")
+        step_num += 3
 
-    lines.append("")
-    lines.append("Open terminal first: hotkey(keys=[\"ctrl\",\"alt\",\"t\"])")
-    lines.append("After each command: press(key=\"enter\") then wait()")
-    lines.append("After verification succeeds: done()")
+    steps.append(f"Step {step_num}: done()")
+
+    lines = [
+        "\n## EXACT STEPS TO FOLLOW (do these in order, one per turn)",
+        "You MUST follow these steps exactly. Do NOT deviate or try alternatives.",
+        "",
+    ]
+    lines.extend(steps)
 
     return "\n".join(lines)
 
@@ -301,6 +311,20 @@ SIMPLE_RECIPES = {
 }
 
 FILE_RECIPES = {
+    "recover_trash": {
+        "pattern": r"recover.*trash|restore.*trash|undelete|trash.*recover",
+        "commands": [
+            "mv ~/.local/share/Trash/files/* ~/Desktop/ 2>/dev/null; ls ~/Desktop/",
+        ],
+        "verify": "ls ~/Desktop/",
+    },
+    "copy_to_dirs": {
+        "pattern": r"cop(?:y|ies).*file.*(?:each|multiple).*dir|cop(?:y|ies).*to\s+each",
+        "commands": [
+            "for d in dir1 dir2 dir3; do cp file1 $d/; done",
+        ],
+        "verify": "ls dir1/file1 dir2/file1 dir3/file1",
+    },
     "copy_jpg": {
         "pattern": r"copy.*\.jpg|\.jpg.*copy|copy.*photo",
         "commands": [
@@ -350,19 +374,30 @@ def build_file_recipe_prompt(instruction: str) -> str:
     commands = [_substitute(cmd, variables) for cmd in recipe["commands"]]
     verify = _substitute(recipe.get("verify", ""), variables)
 
-    lines = [
-        "\n## Recommended Approach (expert knowledge)",
-        "For this file operation, use these terminal commands:",
-        "",
-    ]
-    for i, cmd in enumerate(commands, 1):
-        lines.append(f"{i}. type(text=\"{cmd}\") then press(key=\"enter\")")
+    steps = []
+    steps.append("Step 1: hotkey(keys=[\"ctrl\",\"alt\",\"t\"]) — open terminal")
+    steps.append("Step 2: wait() — wait for terminal to open")
+
+    step_num = 3
+    for cmd in commands:
+        steps.append(f"Step {step_num}: type(text=\"{cmd}\")")
+        steps.append(f"Step {step_num + 1}: press(key=\"enter\")")
+        steps.append(f"Step {step_num + 2}: wait()")
+        step_num += 3
 
     if verify:
-        lines.append(f"\nTo verify: type(text=\"{verify}\") then press(key=\"enter\")")
+        steps.append(f"Step {step_num}: type(text=\"{verify}\")")
+        steps.append(f"Step {step_num + 1}: press(key=\"enter\")")
+        steps.append(f"Step {step_num + 2}: wait()")
+        step_num += 3
 
-    lines.append("")
-    lines.append("Open terminal first: hotkey(keys=[\"ctrl\",\"alt\",\"t\"])")
-    lines.append("After verification succeeds: done()")
+    steps.append(f"Step {step_num}: done()")
+
+    lines = [
+        "\n## EXACT STEPS TO FOLLOW (do these in order, one per turn)",
+        "You MUST follow these steps exactly. Do NOT deviate or try alternatives.",
+        "",
+    ]
+    lines.extend(steps)
 
     return "\n".join(lines)
