@@ -53,6 +53,7 @@ async def run_doctor(base_url: str = "http://localhost:11434"):
     # Screenshot
     _check_binary(table, "grim", "Screenshot (Wayland)", "apt install grim")
     _check_binary(table, "scrot", "Screenshot (X11)", "apt install scrot")
+    _check_binary(table, "xdg-desktop-portal", "Screen capture portal (Wayland — GNOME/KDE)", "apt install xdg-desktop-portal")
 
     # Input simulation
     _check_binary(table, "wtype", "Input (Wayland)", "apt install wtype")

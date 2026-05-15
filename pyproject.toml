@@ -44,6 +44,9 @@ dev = [
     "pytest-cov",
     "ruff",
 ]
+desktop = [
+    "dbus-next>=0.2.3",  # xdg-desktop-portal screen capture on Wayland (GNOME/KDE)
+]
 
 [project.urls]
 Homepage = "https://aulinx.com"
