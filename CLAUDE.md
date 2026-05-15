@@ -13,6 +13,7 @@ aulinx/
 ├── recovery.py         — Error recovery with tool alternatives + strategy fallback
 ├── perception.py       — Hybrid observation: semantic tree vs screenshot decision
 ├── grounding.py        — Action grounding: element names → exact (x,y) coordinates
+├── capture.py          — Screen capture: portal-first (GNOME/KDE/wlroots), grim/scrot fallback
 ├── tool_selector.py    — Dynamic tool selection based on task intent
 ├── summarizer.py       — History compression to reduce token usage
 ├── outcomes.py         — Learning from outcomes across sessions
@@ -46,6 +47,7 @@ aulinx/
 - **ReAct planning**: `planner.py` generates 3-8 step plans before tool execution, injects plan context into system prompt, re-plans after observations.
 - **Error recovery**: `recovery.py` tracks failures, suggests alternative tools (e.g., atspi_do_action → compositor_click), switches strategy after 3 consecutive failures.
 - **Hybrid perception**: `perception.py` decides per-step whether to use semantic tree, screenshot, or both based on app type and tree density.
+- **Portal-first capture**: `capture.py` prefers the `xdg-desktop-portal` Screenshot interface on Wayland (the only method that works on KDE Plasma Wayland), falling back to `grim`/`gnome-screenshot`/`scrot`. All screenshot tools delegate here.
 - **Action grounding**: `grounding.py` resolves element references ("Save button") to exact screen coordinates from the a11y tree, eliminating coordinate hallucination.
 - **Dynamic tool selection**: `tool_selector.py` picks task-relevant tools instead of static CORE_TOOLS set. "manage files" → file tools, "browse web" → browser tools.
 - **History summarization**: `summarizer.py` compresses old conversation turns to reduce token usage (384K → ~150K tokens/task).
