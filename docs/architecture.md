@@ -9,7 +9,7 @@
 ├──────────────────────────────────────────────────────────────────┤
 │                      Python Agent (aulinx/)                      │
 │  Mode Detection → Tool Registry → LLM (Ollama) → Tool Execution │
-│  Three modes: core (119) │ desktop (157) │ compositor (174) tools│
+│  Three modes: core (119) │ desktop (157) │ compositor (187) tools│
 ├──────────────┬───────────────────────┬───────────────────────────┤
 │ Tier 1: Core │ Tier 2: Desktop       │ Tier 3: Compositor        │
 │              │                       │                           │
@@ -114,7 +114,7 @@ XDG shell, SHM, compositor, data device, output, XDG decoration, primary selecti
 
 1. **Semantic over screenshot**: AT-SPI reads the actual UI tree. No OCR, no pixel parsing.
 2. **Own compositor = ground truth**: The scene graph is always accurate because we rendered it.
-3. **Mode filtering**: Don't send 174 tool schemas to an LLM on a headless server.
+3. **Mode filtering**: Don't send 187 tool schemas to an LLM on a headless server.
 4. **JSON-RPC over Unix socket**: Simple, fast, language-agnostic.
 5. **Event-driven**: Subscribe to changes instead of polling screenshots.
 6. **Graceful degradation**: Every tool fails with a clear error, never crashes.

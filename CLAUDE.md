@@ -60,7 +60,7 @@ aulinx/
 ## Dev Setup
 ```bash
 pip install -e ".[dev]"
-make test    # 358 tests (Linux-specific tests skip on other platforms)
+make test    # 598 tests (Linux-specific tests skip on other platforms)
 make lint    # ruff
 ```
 
@@ -91,7 +91,7 @@ python -m benchmark.run_benchmark --profile cloud        # Claude Sonnet
 python -m benchmark.run_benchmark --profile best         # Claude Opus
 python -m benchmark.run_benchmark --profile local        # Qwen/Ollama
 
-# Latest result: 47.8% on OS domain (Qwen Max, 30 steps)
+# Latest result: 62.5% on OS domain (15/24, Qwen Max, 30 steps) — subset run, not full OSWorld
 ```
 
 ## Code Style
