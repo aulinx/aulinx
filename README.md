@@ -43,7 +43,7 @@ Aulinx is an AI layer for Linux that works at three levels:
 └─────────────────────────────────────────────────────────┘
 ```
 
-**187 tools** across all tiers. A **Wayland compositor** (Rust) with 34 IPC commands. **Semantic desktop understanding** — not screenshots, not OCR.
+**187 tools** across all tiers. A **Wayland compositor** (Rust) with 33 IPC commands. **Semantic desktop understanding** — not screenshots, not OCR.
 
 ```
 aulinx > why is my computer slow right now?
@@ -57,12 +57,12 @@ aulinx > why is my computer slow right now?
   Firefox is consuming 42% of your CPU with 47 tabs open.
   Want me to kill background processes?
 
-aulinx > type "Hello from Aulinx!" in gedit
+aulinx > search for "wayland compositor" in Firefox
 
-  > atspi_set_text(app_name=gedit, element_name=Search, text=Hello from Aulinx!)
+  > atspi_set_text(app_name=firefox, element_name=Search, text=wayland compositor)
 
   ┌─ Result (40ms) ──────────────────────────────────┐
-  │ "Set text on 'Search': 'Hello from Aulinx!'"      │
+  │ "Set text on 'Search': 'wayland compositor'"      │
   └────────────────────────────────────────────────────┘
 ```
 
@@ -241,7 +241,7 @@ echo '{"jsonrpc":"2.0","id":6,"method":"scene.subscribe","params":{"filter":"*"}
 ### Architecture
 
 ```
-aulinx-compositor (Rust, ~3300 LOC)
+aulinx-compositor (Rust, ~7,900 LOC)
 ├── Smithay Wayland compositor (winit + DRM backends)
 ├── Semantic bridge (window → scene graph sync)
 ├── IPC server (JSON-RPC over Unix socket)
@@ -258,7 +258,7 @@ aulinx-semantic (Rust library)
 
 ## Tools
 
-187 tools across 43 modules:
+187 tools across 43 modules. Selected highlights below — run `aulinx --doctor` or `/tools` for the full list:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -293,6 +293,8 @@ aulinx-semantic (Rust library)
 | **Long Memory** | remember, recall, recall_recent, forget, memory_count | 5 |
 | **Server** | journal_logs, docker_ps, docker_logs, port_list, firewall_status, cron_list, disk_health, system_logs_summary | 8 |
 | **Compositor** | summary, describe, ascii, suggest, status, config, ping, windows, focused, find_window, element_at, screenshot, annotated_screenshot, window_count, type, key, click, drag, scroll, spawn, focus, close, minimize, swap_master, set_ratio, set_gap, batch, diff, wait_for, run_and_type | 30 |
+
+> The table lists representative tools per category; remaining tools (clipboard, archive, calc, schedule, sysadmin, productivity, AI, and more) bring the total to 187.
 
 ### Permission Tiers
 
@@ -333,14 +335,17 @@ temperature = 0.3
 
 ## Roadmap
 
-- [x] **v0.1–v0.3**: 187 tools + CLI + web UI + tests + audit + long-term memory + daemon + voice + MCP + plugins
-- [x] **v0.4.0**: Semantic compositor — Wayland compositor with scene graph, 34 IPC commands, input injection, DRM/udev backend
-- [x] **v0.5**: Multi-provider LLM (Ollama/OpenAI/Anthropic/Gemini/Qwen), ReAct planner, error recovery, OSWorld benchmark harness
-- [x] **v0.6**: Hybrid perception, action grounding, dynamic tool selection, task decomposition, sandboxed execution
-- [x] **v0.7**: History summarization, learning from outcomes, multi-agent delegation, plugin manifests
-- [x] **v0.8**: Python SDK — `from aulinx import AulinxClient`
-- [x] **v0.9**: Autonomous mode — trigger-based desktop monitoring with approval workflow
+**Released:**
+
+- [x] **v0.1–v0.3**: 92→103 tools + CLI + web UI + tests + audit + long-term memory + daemon + voice + MCP + plugins
+- [x] **v0.4.0**: Semantic compositor — Wayland compositor with scene graph, 20 IPC commands, input injection, DRM/udev backend
+- [x] **v0.5.0** *(current)*: Multi-provider LLM (Ollama/OpenAI/Anthropic/Gemini/Qwen), ReAct planner, error recovery, OSWorld benchmark harness, hybrid perception, action grounding, dynamic tool selection, task decomposition, sandboxed execution, history summarization, learning from outcomes, multi-agent delegation, Python SDK, autonomous mode, portal-first screen capture
+
+**Planned:**
+
 - [ ] **v1.0**: Daily-drivable compositor, full OSWorld-Verified benchmark run, cross-platform stubs, one-command install
+
+See [CHANGELOG.md](CHANGELOG.md) for the detailed per-release history.
 
 ## Name
 

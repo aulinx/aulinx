@@ -21,5 +21,7 @@ target/
 *~
 .DS_Store
 Thumbs.db
-dist/
 npm-placeholder/
+
+# Benchmark run artifacts — raw trajectory logs (results.json summary is kept)
+benchmark/results/*/
