@@ -4,6 +4,31 @@ All notable changes to Aulinx will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/), and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] - 2026-05-15
+
+### Added
+- **Multi-provider LLM** (`llm.py`) — `create_client()` factory supporting Ollama, OpenAI, Anthropic, Gemini, and Qwen Cloud (Dashscope), all with streaming + native tool calling
+- **ReAct planner** (`planner.py`) — generates 3–8 step structured plans before tool execution, injects plan context into the system prompt, re-plans after observations
+- **Error recovery** (`recovery.py`) — tracks failures, suggests alternative tools, switches strategy after 3 consecutive failures
+- **Hybrid perception** (`perception.py`) — decides per-step whether to use the semantic tree, a screenshot, or both, based on app type and tree density
+- **Action grounding** (`grounding.py`) — resolves element references ("Save button") to exact screen coordinates from the a11y tree, eliminating coordinate hallucination
+- **Dynamic tool selection** (`tool_selector.py`) — picks task-relevant tools per intent instead of a static set
+- **History summarization** (`summarizer.py`) — compresses old conversation turns to cut token usage
+- **Learning from outcomes** (`outcomes.py`) — records task results and retrieves relevant past experience for similar future tasks
+- **Multi-agent delegation** (`multi_agent.py`) — decomposes complex tasks into parallel subtasks with worker agents
+- **Python SDK** (`sdk.py`) — `from aulinx import AulinxClient` with `run()`, `execute_tool()`, `list_tools()`
+- **Sandboxed execution** (`sandbox.py`) — wraps `shell_exec` with bubblewrap or firejail, configured via `[security]` in `config.toml`
+- **Autonomous mode** (`autonomous.py`) — trigger-based desktop monitoring (battery, time, apps, disk) with cooldown and approval workflow
+- **Plugin manifests** — manifest support for plugins in `~/.config/aulinx/plugins/`
+- **Portal-first screen capture** (`capture.py`) — prefers the `xdg-desktop-portal` Screenshot interface on Wayland (the only method that works on KDE Plasma Wayland), falling back to `grim`/`gnome-screenshot`/`scrot`
+- **OSWorld benchmark harness** (`benchmark/`) — `python -m benchmark.run_benchmark` with model profiles (`--dry-run`, `--profile`)
+- **`desktop` optional dependency** — `pip install -e ".[desktop]"` adds `dbus-next` for portal screen capture
+
+### Changed
+- Tool count: 186 → 187
+- Doctor diagnostics now check for `xdg-desktop-portal`
+- Benchmark metadata and scoring corrected for honest reporting (subset runs labeled as such, not presented as full OSWorld)
+
 ## [0.4.0] - 2026-04-10
 
 ### Added
@@ -40,7 +65,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/), and this
 
 ### Changed
 - Tool count: 103 → 186 (29 compositor + 8 server + other additions)
-- IPC commands: 7 → 34
+- IPC commands: 7 → 20
 - Keyboard shortcuts: 2 → 12
 - Tests: 114 → 180 (149 unit + 31 integration)
 - Window title/app_id now read from real XDG toplevel state (was hardcoded)

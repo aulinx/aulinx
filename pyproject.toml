@@ -49,7 +49,7 @@ desktop = [
 ]
 
 [project.urls]
-Homepage = "https://aulinx.com"
+Homepage = "https://github.com/aulinx/aulinx"
 Repository = "https://github.com/aulinx/aulinx"
 Issues = "https://github.com/aulinx/aulinx/issues"
 Changelog = "https://github.com/aulinx/aulinx/blob/main/CHANGELOG.md"
