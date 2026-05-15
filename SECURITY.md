@@ -6,9 +6,7 @@ If you discover a security vulnerability in Aulinx, please report it responsibly
 
 **Do not open a public GitHub issue for security vulnerabilities.**
 
-Instead, please email: **security@aulinx.com**
-
-Or use [GitHub's private vulnerability reporting](https://github.com/aulinx/aulinx/security/advisories/new).
+Instead, please use [GitHub's private vulnerability reporting](https://github.com/aulinx/aulinx/security/advisories/new) — open the **Security** tab and click *Report a vulnerability*. This keeps the report private until a fix is released.
 
 ## What to Include
 
