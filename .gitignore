@@ -25,3 +25,6 @@ npm-placeholder/
 
 # Benchmark run artifacts — raw trajectory logs (results.json summary is kept)
 benchmark/results/*/
+
+# Claude Code local (machine-specific) settings
+.claude/settings.local.json
