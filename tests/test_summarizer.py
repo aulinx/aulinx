@@ -1,9 +1,9 @@
 """Tests for history summarization module."""
 
 from aulinx.summarizer import (
+    _summarize_tool_result,
     should_summarize,
     summarize_history,
-    _summarize_tool_result,
 )
 
 

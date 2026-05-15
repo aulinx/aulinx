@@ -1,11 +1,10 @@
 """Tests for the action grounding module."""
 
 from aulinx.grounding import (
-    GroundedElement,
-    ground_action,
-    ground_element_from_tree,
     _match_score,
     _parse_tree_line,
+    ground_action,
+    ground_element_from_tree,
 )
 
 SAMPLE_TREE = """\

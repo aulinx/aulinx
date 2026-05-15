@@ -1,7 +1,7 @@
 # Aulinx — AI-Native Linux Desktop
 
 ## Project Overview
-Aulinx is an AI agent with 207 tools that controls a Linux desktop through natural language. Uses AT-SPI (accessibility API) + custom Wayland compositor for semantic GUI control, with multi-provider LLM support (Ollama, OpenAI, Anthropic, Gemini, Qwen Cloud).
+Aulinx is an AI agent with 187 tools that controls a Linux desktop through natural language. Uses AT-SPI (accessibility API) + custom Wayland compositor for semantic GUI control, with multi-provider LLM support (Ollama, OpenAI, Anthropic, Gemini, Qwen Cloud).
 
 ## Architecture
 ```
@@ -33,13 +33,13 @@ aulinx/
 └── tools/
     ├── base.py         — Tool + Tier types, Ollama schema generation
     ├── registry.py     — Registration, permission checking, kwarg stripping
-    └── 42 tool modules (207 tools total)
+    └── 43 tool modules (187 tools total)
 ```
 
 ## Three-Tier Architecture
 - **Core** (119 tools): Headless — files, git, process, network, docker, services, system
 - **Desktop** (157 tools): + AT-SPI GUI control, screenshots, audio, display, input sim
-- **Compositor** (207 tools): + Custom Wayland compositor IPC, scene graph, input injection
+- **Compositor** (187 tools): + Custom Wayland compositor IPC, scene graph, input injection
 
 ## Key Patterns
 - **Multi-provider LLM**: `create_client(provider, model)` factory in `llm.py`. Supports Ollama, OpenAI, Anthropic, Gemini, Qwen Cloud (Dashscope) with streaming + tool calling.

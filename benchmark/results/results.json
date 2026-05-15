@@ -1,24 +1,24 @@
 {
   "summary": {
     "total_tasks": 24,
-    "completed": 23,
-    "passed": 11,
-    "failed": 12,
-    "errors": 1,
-    "success_rate": 47.8,
+    "completed": 22,
+    "passed": 15,
+    "failed": 7,
+    "errors": 2,
+    "success_rate": 62.5,
     "total_tokens": 0,
     "avg_tokens_per_task": 0,
-    "total_llm_calls": 493,
-    "avg_calls_per_task": 21.4,
-    "total_time_s": 9095.6,
-    "avg_time_per_task_s": 395.5
+    "total_llm_calls": 394,
+    "avg_calls_per_task": 17.9,
+    "total_time_s": 84011.2,
+    "avg_time_per_task_s": 3818.7
   },
   "tasks": [
     {
       "task_id": "13584542-872b-42d8-b299-866967b5c3ef",
       "domain": "os",
       "steps": 30,
-      "time_s": 617.6,
+      "time_s": 618.2,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 30,
@@ -27,28 +27,28 @@
     {
       "task_id": "23393935-50c7-4a86-aeea-2b78fd089c5c",
       "domain": "os",
-      "steps": 30,
-      "time_s": 517.4,
+      "steps": 22,
+      "time_s": 347.8,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 30,
-      "completed": false
+      "llm_calls": 22,
+      "completed": true
     },
     {
       "task_id": "28cc3b7e-b194-4bc9-8353-d04c0f4d56d2",
       "domain": "os",
-      "steps": 30,
-      "time_s": 584.8,
+      "steps": 9,
+      "time_s": 140.2,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 30,
-      "completed": false
+      "llm_calls": 9,
+      "completed": true
     },
     {
       "task_id": "37887e8c-da15-4192-923c-08fa390a176d",
       "domain": "os",
       "steps": 30,
-      "time_s": 592.0,
+      "time_s": 605.2,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 30,
@@ -57,48 +57,48 @@
     {
       "task_id": "3ce045a0-877b-42aa-8d2c-b4a863336ab8",
       "domain": "os",
-      "steps": 30,
-      "time_s": 484.3,
+      "steps": 7,
+      "time_s": 105.8,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 30,
-      "completed": false
+      "llm_calls": 7,
+      "completed": true
     },
     {
       "task_id": "4127319a-8b79-4410-b58a-7a151e15f3d7",
       "domain": "os",
-      "steps": 12,
-      "time_s": 193.0,
+      "steps": 8,
+      "time_s": 138.7,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 12,
+      "llm_calls": 8,
       "completed": true
     },
     {
       "task_id": "4783cc41-c03c-4e1b-89b4-50658f642bd5",
       "domain": "os",
-      "steps": 11,
-      "time_s": 218.0,
-      "tokens_in": 0,
-      "tokens_out": 0,
-      "llm_calls": 11,
-      "completed": true
-    },
-    {
-      "task_id": "4d117223-a354-47fb-8b45-62ab1390a95f",
-      "domain": "os",
       "steps": 16,
-      "time_s": 276.1,
+      "time_s": 249.6,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 16,
       "completed": true
     },
     {
+      "task_id": "4d117223-a354-47fb-8b45-62ab1390a95f",
+      "domain": "os",
+      "steps": 8,
+      "time_s": 129.7,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "llm_calls": 8,
+      "completed": true
+    },
+    {
       "task_id": "5812b315-e7bd-4265-b51f-863c02174c28",
       "domain": "os",
       "steps": 30,
-      "time_s": 566.8,
+      "time_s": 665.2,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 30,
@@ -106,134 +106,131 @@
     },
     {
       "task_id": "5c1075ca-bb34-46a3-a7a0-029bd7463e79",
-      "domain": "os",
-      "steps": 13,
-      "time_s": 219.6,
-      "tokens_in": 0,
-      "tokens_out": 0,
-      "llm_calls": 13,
-      "completed": true
+      "score": 0.0,
+      "error": "peer closed connection without sending complete message body (received 24576 bytes, expected 110337)",
+      "domain": "os"
     },
     {
       "task_id": "5ced85fc-fa1a-4217-95fd-0fb530545ce2",
-      "domain": "os",
-      "steps": 30,
-      "time_s": 544.4,
-      "tokens_in": 0,
-      "tokens_out": 0,
-      "llm_calls": 30,
-      "completed": false
+      "score": 0.0,
+      "error": "timed out",
+      "domain": "os"
     },
     {
       "task_id": "5ea617a3-0e86-4ba6-aab2-dac9aa2e8d57",
       "domain": "os",
-      "steps": 18,
-      "time_s": 280.2,
-      "tokens_in": 0,
-      "tokens_out": 0,
-      "llm_calls": 18,
-      "completed": true
-    },
-    {
-      "task_id": "6f56bf42-85b8-4fbb-8e06-6c44960184ba",
-      "domain": "os",
-      "steps": 11,
-      "time_s": 163.2,
-      "tokens_in": 0,
-      "tokens_out": 0,
-      "llm_calls": 11,
-      "completed": true
-    },
-    {
-      "task_id": "94d95f96-9699-4208-98ba-3c3119edf9c2",
-      "domain": "os",
       "steps": 30,
-      "time_s": 440.9,
+      "time_s": 76152.0,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 30,
       "completed": false
     },
     {
+      "task_id": "6f56bf42-85b8-4fbb-8e06-6c44960184ba",
+      "domain": "os",
+      "steps": 30,
+      "time_s": 598.2,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "llm_calls": 30,
+      "completed": false
+    },
+    {
+      "task_id": "94d95f96-9699-4208-98ba-3c3119edf9c2",
+      "domain": "os",
+      "steps": 12,
+      "time_s": 199.5,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "llm_calls": 12,
+      "completed": true
+    },
+    {
       "task_id": "a462a795-fdc7-4b23-b689-e8b6df786b78",
       "domain": "os",
+      "steps": 16,
+      "time_s": 237.5,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "llm_calls": 16,
+      "completed": true
+    },
+    {
+      "task_id": "a4d98375-215b-4a4d-aee9-3d4370fccc41",
+      "domain": "os",
       "steps": 9,
-      "time_s": 126.3,
+      "time_s": 159.7,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 9,
       "completed": true
     },
     {
-      "task_id": "a4d98375-215b-4a4d-aee9-3d4370fccc41",
-      "domain": "os",
-      "steps": 30,
-      "time_s": 420.8,
-      "tokens_in": 0,
-      "tokens_out": 0,
-      "llm_calls": 30,
-      "completed": false
-    },
-    {
       "task_id": "b3d4a89c-53f2-4d6b-8b6a-541fb5d205fa",
       "domain": "os",
-      "steps": 14,
-      "time_s": 266.3,
+      "steps": 13,
+      "time_s": 243.7,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 14,
+      "llm_calls": 13,
       "completed": true
     },
     {
       "task_id": "b6781586-6346-41cd-935a-a6b1487918fc",
       "domain": "os",
-      "steps": 19,
-      "time_s": 269.1,
+      "steps": 20,
+      "time_s": 265.1,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 19,
+      "llm_calls": 20,
       "completed": true
     },
     {
       "task_id": "bedcedc4-4d72-425e-ad62-21960b11fe0d",
       "domain": "os",
-      "steps": 6,
-      "time_s": 99.5,
+      "steps": 16,
+      "time_s": 216.9,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 6,
+      "llm_calls": 16,
       "completed": true
     },
     {
       "task_id": "c288e301-e626-4b98-a1ab-159dcb162af5",
       "domain": "os",
-      "steps": 4,
-      "time_s": 63.0,
+      "steps": 1,
+      "time_s": 21.5,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 4,
+      "llm_calls": 1,
       "completed": true
     },
     {
       "task_id": "e0df059f-28a6-4169-924f-b9623e7184cc",
-      "score": 0.0,
-      "error": "timed out"
-    },
-    {
-      "task_id": "ec4e3f68-9ea4-4c18-a5c9-69f89d1178b3",
       "domain": "os",
       "steps": 30,
-      "time_s": 485.6,
+      "time_s": 539.9,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 30,
       "completed": false
     },
     {
+      "task_id": "ec4e3f68-9ea4-4c18-a5c9-69f89d1178b3",
+      "domain": "os",
+      "steps": 21,
+      "time_s": 376.9,
+      "tokens_in": 0,
+      "tokens_out": 0,
+      "llm_calls": 21,
+      "completed": true
+    },
+    {
       "task_id": "f9be0997-4b7c-45c5-b05c-4612b44a6118",
       "domain": "os",
       "steps": 30,
-      "time_s": 516.9,
+      "time_s": 605.2,
       "tokens_in": 0,
       "tokens_out": 0,
       "llm_calls": 30,
@@ -242,12 +239,12 @@
     {
       "task_id": "fe41f596-a71b-4c2f-9b2f-9dcd40b568c3",
       "domain": "os",
-      "steps": 30,
-      "time_s": 528.4,
+      "steps": 6,
+      "time_s": 125.5,
       "tokens_in": 0,
       "tokens_out": 0,
-      "llm_calls": 30,
-      "completed": false
+      "llm_calls": 6,
+      "completed": true
     }
   ]
 }
