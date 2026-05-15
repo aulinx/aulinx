@@ -1,6 +1,10 @@
 """Tests for the screen capture module."""
 
+import os
+import platform
 from pathlib import Path
+
+import pytest
 
 from aulinx import capture as cap
 from aulinx.capture import _backend_order, _session_type
@@ -144,3 +148,49 @@ async def test_screen_screenshot_window_fallback_uses_capture(monkeypatch):
     result = await screen.screenshot_window()
     assert result["path"] == "/tmp/full.png"
     assert result["method"] == "portal"
+
+
+def test_portal_uri_to_path_decodes_file_uri():
+    from aulinx.capture import _portal_uri_to_path
+
+    p = _portal_uri_to_path("file:///tmp/Screenshot%20From%202026.png")
+    assert str(p) == "/tmp/Screenshot From 2026.png"
+
+
+def test_portal_uri_to_path_rejects_non_file_uri():
+    from aulinx.capture import _portal_uri_to_path
+
+    with pytest.raises(ValueError):
+        _portal_uri_to_path("https://example.com/x.png")
+
+
+@pytest.mark.skipif(
+    platform.system() != "Linux" or not os.environ.get("WAYLAND_DISPLAY"),
+    reason="portal capture requires a Linux Wayland session with xdg-desktop-portal",
+)
+async def test_capture_portal_integration():
+    """Real end-to-end portal capture. May show a permission prompt on first run."""
+    import tempfile
+
+    from aulinx.capture import _capture_portal
+
+    dest = Path(tempfile.gettempdir()) / "aulinx-portal-itest.png"
+    dest.unlink(missing_ok=True)
+    try:
+        ok = await _capture_portal(dest)
+        assert ok is True, "portal capture failed — check xdg-desktop-portal is running"
+        assert dest.stat().st_size > 0
+    finally:
+        dest.unlink(missing_ok=True)
+
+
+async def test_capture_portal_returns_false_without_dbus_next(monkeypatch):
+    """If dbus-next is not installed, the portal backend degrades to False."""
+    import sys
+
+    from aulinx.capture import _capture_portal
+
+    # Setting the module to None makes `import dbus_next` raise ImportError.
+    monkeypatch.setitem(sys.modules, "dbus_next", None)
+    result = await _capture_portal(Path("/nonexistent/aulinx-x.png"))
+    assert result is False
