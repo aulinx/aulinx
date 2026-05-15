@@ -62,6 +62,7 @@ aulinx/
 ## Dev Setup
 ```bash
 pip install -e ".[dev]"
+pip install -e ".[desktop]"  # optional: dbus-next, enables xdg-desktop-portal screen capture (Wayland — GNOME/KDE)
 make test    # 598 tests (Linux-specific tests skip on other platforms)
 make lint    # ruff
 ```

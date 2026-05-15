@@ -195,9 +195,10 @@ _BACKENDS = {
 async def capture_screen(prefer: str | None = None) -> dict:
     """Capture the full screen to a temp PNG.
 
-    Tries backends in session-appropriate priority order. `prefer` moves a
-    named backend to the front. Returns {"path", "size_bytes", "method"} on
-    success or {"error": ...} if every backend fails.
+    Tries backends in session-appropriate priority order. `prefer` puts a
+    named backend first — including one not in this session's default order
+    (e.g. forcing the portal on an X11 session). Returns {"path",
+    "size_bytes", "method"} on success or {"error": ...} if every backend fails.
     """
     dest = Path(tempfile.gettempdir()) / f"aulinx-screenshot-{int(time.time() * 1000)}.png"
     order = _backend_order()
