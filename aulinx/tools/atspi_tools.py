@@ -1,7 +1,6 @@
 """AT-SPI tools — read and interact with application UIs."""
 
-from pathlib import Path
-
+from aulinx.capture import capture_screen
 from aulinx.tools.base import Tier, Tool
 
 
@@ -378,43 +377,13 @@ def _find_and_focus(node, name_filter: str, role_filter: str, depth: int, max_de
     return None
 
 
-async def window_screenshot(method: str = "grim") -> dict:
-    """Take a screenshot of the screen or focused window. Returns the file path."""
-    import subprocess
-    import tempfile
-    import time
+async def window_screenshot(method: str = "portal") -> dict:
+    """Take a full-screen screenshot. Returns the file path.
 
-    filename = f"aulinx-screenshot-{int(time.time())}.png"
-    filepath = Path(tempfile.gettempdir()) / filename
-
-    # Try multiple screenshot methods
-    commands = {
-        "grim": ["grim", str(filepath)],                          # Wayland (wlroots)
-        "gnome-screenshot": ["gnome-screenshot", "-f", str(filepath)],  # GNOME
-        "scrot": ["scrot", str(filepath)],                         # X11
-        "import": ["import", "-window", "root", str(filepath)],   # ImageMagick X11
-    }
-
-    # Try preferred method first, then others
-    order = [method] + [k for k in commands if k != method]
-
-    for cmd_name in order:
-        cmd = commands.get(cmd_name)
-        if not cmd:
-            continue
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            if result.returncode == 0 and filepath.exists():
-                size = filepath.stat().st_size
-                return {
-                    "path": str(filepath),
-                    "size_bytes": size,
-                    "method": cmd_name,
-                }
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            continue
-
-    return {"error": "No screenshot tool available (install grim, gnome-screenshot, or scrot)"}
+    `method` names a preferred backend (portal, grim, gnome-screenshot,
+    scrot, import); capture falls back through the others if it fails.
+    """
+    return await capture_screen(prefer=method)
 
 
 TOOLS = [
@@ -486,7 +455,7 @@ TOOLS = [
         name="window_screenshot",
         description="Take a screenshot of the entire screen. Returns the file path to the saved PNG image.",
         fn=window_screenshot,
-        parameters={"method": "grim|gnome-screenshot|scrot (default: grim)"},
+        parameters={"method": "portal|grim|gnome-screenshot|scrot|import (default: portal)"},
         tier=Tier.OBSERVE,
     ),
 ]

@@ -119,3 +119,15 @@ async def test_capture_screen_headless_returns_error(monkeypatch):
     monkeypatch.setattr(cap, "_backend_order", lambda env=None: [])
     result = await cap.capture_screen()
     assert "error" in result
+
+
+async def test_window_screenshot_delegates_to_capture(monkeypatch):
+    from aulinx.tools import atspi_tools
+
+    async def fake_capture(prefer=None):
+        return {"path": "/tmp/x.png", "size_bytes": 123, "method": prefer or "portal"}
+
+    monkeypatch.setattr(atspi_tools, "capture_screen", fake_capture)
+    result = await atspi_tools.window_screenshot(method="grim")
+    assert result["method"] == "grim"
+    assert result["size_bytes"] == 123
