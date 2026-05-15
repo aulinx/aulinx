@@ -1,10 +1,9 @@
 """OCR tools — extract text from screenshots for apps without AT-SPI support."""
 
 import subprocess
-import tempfile
-import time
 from pathlib import Path
 
+from aulinx.capture import capture_screen
 from aulinx.tools.base import Tier, Tool
 
 
@@ -14,25 +13,10 @@ async def screenshot_ocr(region: str = "") -> dict:
     region: optional "x,y,width,height" to capture a specific area.
     """
     # Step 1: Take screenshot
-    screenshot_path = Path(tempfile.gettempdir()) / f"aulinx-ocr-{int(time.time())}.png"
-
-    screenshot_taken = False
-    for cmd in [
-        ["grim", str(screenshot_path)],
-        ["gnome-screenshot", "-f", str(screenshot_path)],
-        ["scrot", str(screenshot_path)],
-        ["import", "-window", "root", str(screenshot_path)],
-    ]:
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            if result.returncode == 0 and screenshot_path.exists():
-                screenshot_taken = True
-                break
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            continue
-
-    if not screenshot_taken:
-        return {"error": "No screenshot tool available (install grim, gnome-screenshot, or scrot)"}
+    shot = await capture_screen()
+    if "error" in shot:
+        return shot
+    screenshot_path = Path(shot["path"])
 
     # Step 2: Crop if region specified
     if region:

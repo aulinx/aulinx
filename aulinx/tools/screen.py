@@ -5,6 +5,7 @@ import tempfile
 import time
 from pathlib import Path
 
+from aulinx.capture import capture_screen
 from aulinx.tools.base import Tier, Tool
 
 
@@ -32,20 +33,8 @@ async def screenshot_window(app_name: str = "") -> dict:
         except (FileNotFoundError, subprocess.TimeoutExpired):
             pass
 
-    # Fallback: full screen screenshot
-    for cmd in [
-        ["gnome-screenshot", "-w", "-f", str(filepath)],  # GNOME focused window
-        ["grim", str(filepath)],
-        ["scrot", "-u", str(filepath)],  # focused window
-    ]:
-        try:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=10)
-            if result.returncode == 0 and filepath.exists():
-                return {"path": str(filepath), "size_bytes": filepath.stat().st_size}
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            continue
-
-    return {"error": "No screenshot tool available"}
+    # Fallback: full-screen capture via the shared capture module.
+    return await capture_screen()
 
 
 async def workspace_switch(number: int) -> dict:

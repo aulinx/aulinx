@@ -131,3 +131,16 @@ async def test_window_screenshot_delegates_to_capture(monkeypatch):
     result = await atspi_tools.window_screenshot(method="grim")
     assert result["method"] == "grim"
     assert result["size_bytes"] == 123
+
+
+async def test_screen_screenshot_window_fallback_uses_capture(monkeypatch):
+    from aulinx.tools import screen
+
+    async def fake_capture(prefer=None):
+        return {"path": "/tmp/full.png", "size_bytes": 999, "method": "portal"}
+
+    monkeypatch.setattr(screen, "capture_screen", fake_capture)
+    # No app_name -> full-screen path -> must delegate to capture.
+    result = await screen.screenshot_window()
+    assert result["path"] == "/tmp/full.png"
+    assert result["method"] == "portal"
