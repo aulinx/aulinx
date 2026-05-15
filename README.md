@@ -43,7 +43,7 @@ Aulinx is an AI layer for Linux that works at three levels:
 └─────────────────────────────────────────────────────────┘
 ```
 
-**186 tools** across all tiers. A **Wayland compositor** (Rust) with 34 IPC commands. **Semantic desktop understanding** — not screenshots, not OCR.
+**187 tools** across all tiers. A **Wayland compositor** (Rust) with 34 IPC commands. **Semantic desktop understanding** — not screenshots, not OCR.
 
 ```
 aulinx > why is my computer slow right now?
@@ -79,7 +79,7 @@ Mode 1: Agent on any desktop          Mode 2: Full AI compositor
 ┌─────────────────────────────┐      ┌─────────────────────────────┐
 │  CLI / Web UI / Voice / MCP │      │  CLI / Web UI / Voice / MCP │
 ├─────────────────────────────┤      ├─────────────────────────────┤
-│  Agent (186 tools + LLM)    │      │  Agent (186 tools + LLM)    │
+│  Agent (187 tools + LLM)    │      │  Agent (187 tools + LLM)    │
 ├─────────────────────────────┤      ├─────────────────────────────┤
 │  aulinx-semanticd (daemon)  │      │  aulinx-compositor (Rust)   │
 │  AT-SPI → Scene Graph → IPC │      │  Smithay + Scene Graph      │
@@ -258,7 +258,7 @@ aulinx-semantic (Rust library)
 
 ## Tools
 
-186 tools across 45 modules:
+187 tools across 43 modules:
 
 | Category | Tools | Count |
 |----------|-------|-------|
@@ -333,11 +333,14 @@ temperature = 0.3
 
 ## Roadmap
 
-- [x] **v0.1–v0.3**: 186 tools + CLI + web UI + tests + audit + long-term memory + daemon + voice + MCP + plugins
+- [x] **v0.1–v0.3**: 187 tools + CLI + web UI + tests + audit + long-term memory + daemon + voice + MCP + plugins
 - [x] **v0.4.0**: Semantic compositor — Wayland compositor with scene graph, 34 IPC commands, input injection, DRM/udev backend
-- [ ] **v0.5**: OSWorld benchmark, multi-LLM backend (Claude/GPT-4/Ollama), compositor hardening
-- [ ] **v0.6**: React dashboard, daily-drivable compositor, open-source launch
-- [ ] **v1.0**: Full AI desktop environment + distributable Linux image
+- [x] **v0.5**: Multi-provider LLM (Ollama/OpenAI/Anthropic/Gemini/Qwen), ReAct planner, error recovery, OSWorld benchmark harness
+- [x] **v0.6**: Hybrid perception, action grounding, dynamic tool selection, task decomposition, sandboxed execution
+- [x] **v0.7**: History summarization, learning from outcomes, multi-agent delegation, plugin manifests
+- [x] **v0.8**: Python SDK — `from aulinx import AulinxClient`
+- [x] **v0.9**: Autonomous mode — trigger-based desktop monitoring with approval workflow
+- [ ] **v1.0**: Daily-drivable compositor, full OSWorld-Verified benchmark run, cross-platform stubs, one-command install
 
 ## Name
 

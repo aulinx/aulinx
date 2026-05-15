@@ -4,8 +4,8 @@ build-backend = "hatchling.build"
 
 [project]
 name = "aulinx"
-version = "0.4.0"
-description = "AI-native Linux — desktop to server. 174 tools, semantic compositor, three-tier architecture."
+version = "0.5.0"
+description = "AI-native Linux — desktop to server. 187 tools, semantic compositor, three-tier architecture."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"

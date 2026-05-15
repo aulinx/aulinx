@@ -14,13 +14,23 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 
-# Known baselines for comparison
+# Known baselines for comparison.
+# IMPORTANT: these are full OSWorld scores across all 369 tasks / every domain.
+# They are only comparable to an Aulinx run that also covers the full domain set
+# (see OSWORLD_DOMAINS). A single-domain run (e.g. os-only) is NOT comparable.
 BASELINES = {
     "Human": {"success_rate": 72.4, "tokens_per_task": None},
     "Agent S3 (100-step)": {"success_rate": 62.6, "tokens_per_task": None},
     "Agent S3 + BoN": {"success_rate": 69.9, "tokens_per_task": None},
     "Claude CUA (15-step)": {"success_rate": 22.0, "tokens_per_task": 5000},
     "GPT-4o (15-step)": {"success_rate": 12.2, "tokens_per_task": 4000},
+}
+
+# The full OSWorld-Verified domain set. A run that omits any of these is a
+# subset run and its success rate cannot be compared to the BASELINES above.
+OSWORLD_DOMAINS = {
+    "os", "chrome", "libreoffice_calc", "libreoffice_writer",
+    "libreoffice_impress", "gimp", "vlc", "thunderbird", "vs_code", "multi_apps",
 }
 
 
@@ -43,12 +53,14 @@ def analyze(data: dict) -> dict:
     domain_stats = {}
     for domain, domain_tasks in sorted(by_domain.items()):
         scored = [t for t in domain_tasks if "error" not in t]
-        passed = [t for t in scored if t.get("score", 0) > 0]
+        # run_benchmark records a boolean `completed`; older runs used `score`.
+        passed = [t for t in scored if t.get("completed") or t.get("score", 0) > 0]
         tokens = sum(t.get("tokens_in", 0) + t.get("tokens_out", 0) for t in scored)
         domain_stats[domain] = {
             "total": len(domain_tasks),
             "passed": len(passed),
-            "success_rate": round(len(passed) / max(1, len(scored)) * 100, 1),
+            # passed / total — errored tasks count as failures (see _compute_summary)
+            "success_rate": round(len(passed) / max(1, len(domain_tasks)) * 100, 1),
             "avg_tokens": round(tokens / max(1, len(scored))),
             "avg_steps": round(sum(t.get("steps", 0) for t in scored) / max(1, len(scored)), 1),
         }
@@ -103,6 +115,18 @@ def generate_markdown(analysis: dict) -> str:
         eff = analysis["token_efficiency"].get(name, {})
         eff_str = f"{eff['efficiency_ratio']}x fewer" if eff else "—"
         lines.append(f"| {name} | {baseline['success_rate']}% | {tokens or '—'} | {eff_str} |")
+
+    covered = set(analysis["domain_stats"].keys())
+    missing = OSWORLD_DOMAINS - covered
+    if missing:
+        lines.extend([
+            "",
+            f"> **Warning - subset run, not comparable to the baselines above.** This run "
+            f"covered only {sorted(covered)} ({len(covered)}/{len(OSWORLD_DOMAINS)} "
+            f"OSWorld domains). The baseline scores are full-benchmark (369-task) "
+            f"results. Missing domains: {sorted(missing)}. Run the full domain set "
+            f"for an apples-to-apples comparison.",
+        ])
 
     lines.extend([
         "",

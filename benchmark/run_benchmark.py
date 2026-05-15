@@ -304,7 +304,12 @@ def run_benchmark(args):
 
         except Exception as e:
             logger.error("  Task %s failed: %s", task_id, e)
-            results.append({"task_id": task_id, "score": 0.0, "error": str(e)})
+            results.append({
+                "task_id": task_id,
+                "domain": task.get("domain", "unknown"),
+                "score": 0.0,
+                "error": str(e),
+            })
 
     # Save aggregate results
     total_time = time.time() - start_time
@@ -492,7 +497,14 @@ def _load_tasks(examples_dir: Path, domain: str | None) -> dict:
 
 
 def _compute_summary(results: list[dict], total_time: float) -> dict:
-    """Compute aggregate metrics from task results."""
+    """Compute aggregate metrics from task results.
+
+    success_rate is passed / total_tasks. A task that errored out (harness
+    crash, VM failure, agent exception) did not solve the task and counts as
+    a failure — this matches OSWorld's standard scoring. passed + failed +
+    errors == total_tasks.
+    """
+    total = len(results)
     scored = [r for r in results if "error" not in r]
     passed = [r for r in scored if r.get("completed")]
 
@@ -500,12 +512,12 @@ def _compute_summary(results: list[dict], total_time: float) -> dict:
     total_calls = sum(r.get("llm_calls", 0) for r in scored)
 
     return {
-        "total_tasks": len(results),
+        "total_tasks": total,
         "completed": len(scored),
         "passed": len(passed),
         "failed": len(scored) - len(passed),
-        "errors": len(results) - len(scored),
-        "success_rate": round(len(passed) / max(1, len(scored)) * 100, 1),
+        "errors": total - len(scored),
+        "success_rate": round(len(passed) / max(1, total) * 100, 1),
         "total_tokens": total_tokens,
         "avg_tokens_per_task": round(total_tokens / max(1, len(scored))),
         "total_llm_calls": total_calls,
@@ -521,7 +533,7 @@ def _print_summary(summary: dict):
     print("  AULINX OSWORLD BENCHMARK RESULTS")
     print("=" * 60)
     print(f"  Tasks:        {summary['completed']} completed, {summary['errors']} errors")
-    print(f"  Success rate: {summary['success_rate']}% ({summary['passed']}/{summary['completed']})")
+    print(f"  Success rate: {summary['success_rate']}% ({summary['passed']}/{summary['total_tasks']})")
     print(f"  Avg tokens:   {summary['avg_tokens_per_task']} per task")
     print(f"  Avg LLM calls: {summary['avg_calls_per_task']} per task")
     print(f"  Total time:   {summary['total_time_s']}s ({summary['avg_time_per_task_s']}s avg)")
