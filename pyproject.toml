@@ -10,7 +10,7 @@ readme = "README.md"
 license = "MIT"
 requires-python = ">=3.10"
 authors = [
-    { name = "Zhijie Wong", email = "wang.zhijie@163.com" },
+    { name = "Zhijie Wong", email = "hello@aulinx.com" },
 ]
 keywords = ["ai", "linux", "desktop", "wayland", "llm", "atspi", "agent", "tools", "compositor", "server", "headless"]
 classifiers = [
