@@ -1,8 +1,9 @@
 <p align="center">
-  <h1 align="center">Aulinx</h1>
-  <p align="center"><strong>AI-native Linux. Desktop to server.</strong></p>
-  <p align="center">Other AI agents look at your screen. Aulinx IS the screen.</p>
+  <img src="https://raw.githubusercontent.com/aulinx/aulinx/main/assets/logo.svg" alt="Aulinx" width="200">
 </p>
+
+<p align="center"><strong>AI-native Linux. Desktop to server.</strong></p>
+<p align="center">Other AI agents look at your screen. Aulinx IS the screen.</p>
 
 <p align="center">
   <a href="https://github.com/aulinx/aulinx/actions"><img src="https://github.com/aulinx/aulinx/workflows/CI/badge.svg" alt="CI"></a>
@@ -369,4 +370,6 @@ cargo test
 
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE).
+
+The logo's penguin is derived from [Tux](https://en.wikipedia.org/wiki/Tux_(mascot)), the Linux mascot created by Larry Ewing.
